@@ -78,7 +78,8 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 | `find_phone_script` | Script ou bouton qui fait sonner le téléphone : affiche le bouton **Faire sonner le téléphone** | — |
 | `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |
 | `notifications` | `false` : ne pas afficher le contenu des notifications (onglet Notifications et dernier SMS) | `true` |
-| `notifications_max` | Nombre de notifications listées au plus | `20` |
+| `system_notifications` | `false` : ne pas lister les notifications du système (Android, constructeur, services Google) | `true` |
+| `notifications_max` | Nombre de notifications listées au plus, par section | `20` |
 | `demo` | `true` : personne et téléphone fictifs, pour partager une capture sans rien dévoiler | `false` |
 | `phone` | Entités du téléphone à utiliser à la place de celles trouvées automatiquement (voir ci-dessous) | — |
 
@@ -115,7 +116,7 @@ Ce que la carte calcule elle-même, sans capteur modèle à créer :
 - **Distance** : calculée entre la position GPS du téléphone et la zone Maison, sans intégration Proximité ni capteur. Moins de 50 m compte comme à la maison (0 m).
 - **Rue et ville** : lues dans les attributs de l'adresse géocodée, sinon découpées dans son texte (« rue, code postal ville »).
 - **VPN WireGuard** (intégration wgdashboard_monitor) : la carte prend le peer dont le nom correspond au téléphone ou à la personne (`binary_sensor.wgdashboard_wg0_<peer>_connected`) et affiche, à côté des notifications, s'il est connecté, son dernier handshake et les données reçues et envoyées. Une pastille VPN s'ajoute dans l'en-tête quand il est connecté. Si le nom du peer ne correspond pas, indiquez-le sous `phone: vpn:`.
-- **Notifications** (Android) : le contenu de chaque notification (application, titre, message, heure) est lu dans les attributs du capteur `…_active_notification_count`. L'onglet **Notifications** les liste de la plus récente à la plus ancienne, et la tuile **Dernier SMS** montre le dernier message reçu dans l'application Messages, avec son expéditeur.
+- **Notifications** (Android) : le contenu de chaque notification (application, titre, message, heure) est lu dans les attributs du capteur `…_active_notification_count`. L'onglet **Notifications** les liste de la plus récente à la plus ancienne, en deux sections : **Applications** (messages, WhatsApp, Home Assistant…) et **Système** (Android, Xiaomi, Samsung, Nothing, services Google…), et la tuile **Dernier SMS** montre le dernier message reçu dans l'application Messages, avec son expéditeur.
 
 Pour forcer une entité, indiquez-la sous `phone:` ; les autres restent détectées :
 

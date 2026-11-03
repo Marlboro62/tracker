@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.0.0-beta.7";
+const CARD_VERSION = "1.0.0-beta.8";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -188,7 +188,24 @@ const APPS = {
   "com.android.systemui": ["Système", "mdi:android"], "com.google.android.deskclock": ["Horloge", "mdi:alarm"], "com.sec.android.app.clockpackage": ["Horloge", "mdi:alarm"],
 };
 const SMS_APPS = ["com.google.android.apps.messaging", "com.samsung.android.messaging", "com.android.mms"];
-const appInfo = (pkg) => APPS[pkg] || [(pkg.split(".").pop() || pkg).replace(/^./, (c) => c.toUpperCase()), "mdi:bell-outline"];
+/** Notifications du système : Android, constructeur (Xiaomi, Samsung, Nothing…), services Google. */
+const SYSTEM_RE = [
+  /^android$/, /^com\.android\.(?!mms|dialer|contacts|calendar|chrome|email|deskclock|camera)/,
+  /^com\.(miui|xiaomi|mi)\./, /^com\.google\.android\.(gms|gsf|setupwizard|packageinstaller|permissioncontroller|networkstack|apps\.wellbeing|apps\.turbo|providers\.)/,
+  /^com\.samsung\.android\.(?!messaging|dialer|calendar|email)/, /^com\.sec\.android\.(?!app\.clockpackage)/,
+  /^com\.(oplus|coloros|oneplus|nothing|motorola|huawei|hihonor|realme|vivo|lge|sonymobile|asus)\./, /^com\.qualcomm\./,
+];
+const isSystem = (pkg) => !SMS_APPS.includes(pkg) && SYSTEM_RE.some((re) => re.test(pkg));
+const SYSTEM_NAMES = [
+  [/^android$|^com\.android\.systemui$/, "Système Android", "mdi:android"], [/^com\.android\.settings$/, "Paramètres", "mdi:cog"],
+  [/^com\.android\.phone$|^com\.android\.server\.telecom$/, "Téléphonie", "mdi:phone"], [/^com\.android\.providers\.downloads/, "Téléchargements", "mdi:download"],
+  [/^com\.miui\.securitycenter$/, "Sécurité", "mdi:shield-check"], [/^com\.(miui|xiaomi|mi)\./, "Xiaomi", "mdi:cellphone-cog"],
+  [/^com\.google\.android\.(gms|gsf)/, "Services Google", "mdi:google"], [/^com\.google\.android\./, "Google", "mdi:google"],
+  [/^com\.(samsung|sec)\.android\./, "Samsung", "mdi:cellphone-cog"], [/^com\.nothing\./, "Nothing", "mdi:cellphone-cog"],
+  [/^com\.(oplus|coloros|oneplus|realme)\./, "OnePlus/Oppo", "mdi:cellphone-cog"],
+];
+const appInfo = (pkg) => APPS[pkg] || (() => { const m = SYSTEM_NAMES.find(([re]) => re.test(pkg)); return m ? [m[1], m[2]] : null; })()
+  || [(pkg.split(".").pop() || pkg).replace(/^./, (c) => c.toUpperCase()), "mdi:bell-outline"];
 const readNotifs = (st) => {
   const a = st?.attributes || {}, out = [];
   for (const k of Object.keys(a)) {
@@ -234,6 +251,8 @@ const DEMO = (() => {
       { pkg: "com.google.android.apps.messaging", title: "Dominique", text: "Je passe prendre le pain en rentrant, il te faut autre chose ?", t: Date.now() - 4 * 60e3 },
       { pkg: "com.whatsapp", title: "Famille démo", text: "Photo", t: Date.now() - 38 * 60e3 },
       { pkg: "io.homeassistant.companion.android", title: "Lave-linge", text: "Le cycle est terminé.", t: Date.now() - 2.5 * 3600e3 },
+      { pkg: "android", title: "Point d'accès activé", text: "Aucun appareil connecté", t: Date.now() - 60e3 },
+      { pkg: "com.miui.securitycenter", title: "Analyse terminée", text: "Aucune menace détectée.", t: Date.now() - 6 * 60e3 },
     ],
   };
 })();
@@ -522,9 +541,16 @@ class TrackerCard extends HTMLElement {
     const p2 = sec("mdi:information-outline", "Appareil", infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
 
     // onglet Notifications
-    const p3 = notifs.length ? sec("mdi:bell-outline", `${notifs.length} notification${notifs.length > 1 ? "s" : ""}`, `<div class="tk-nl">${notifs.slice(0, cfg.notifications_max || 20).map((n) => { const [app, icon] = appInfo(n.pkg); return `
+    // applications d'un côté, système (Android, constructeur, services Google) de l'autre
+    const max = cfg.notifications_max || 20;
+    const nItem = (n) => { const [app, icon] = appInfo(n.pkg); return `
       <div class="tk-n"><ha-icon icon="${esc(icon)}"></ha-icon><div><div class="tk-nh"><span>${esc(app)}</span><span>${esc(ago(n.t))}</span></div>
-        ${n.title ? `<b>${esc(n.title)}</b>` : ""}${n.text ? `<p>${esc(n.text)}</p>` : ""}</div></div>`; }).join("")}</div>`) : "";
+        ${n.title ? `<b>${esc(n.title)}</b>` : ""}${n.text ? `<p>${esc(n.text)}</p>` : ""}</div></div>`; };
+    const nList = (list) => `<div class="tk-nl">${list.slice(0, max).map(nItem).join("")}</div>`;
+    const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
+    const appN = notifs.filter((n) => !isSystem(n.pkg)), sysN = cfg.system_notifications === false ? [] : notifs.filter((n) => isSystem(n.pkg));
+    const p3 = (appN.length ? sec("mdi:bell-outline", `Applications · ${plural(appN.length, "notification")}`, nList(appN)) : "")
+      + (sysN.length ? sec("mdi:cellphone-cog", `Système · ${plural(sysN.length, "notification")}`, nList(sysN)) : "");
 
     const panels = [["mdi:cellphone", "Téléphone", p0], ["mdi:wifi", "Réseau", p1], ["mdi:bell-outline", "Notifications", p3, "notifs"], ["mdi:information-outline", "Infos", p2]]
       .filter(([, , p]) => p.trim());
@@ -549,7 +575,7 @@ class TrackerCard extends HTMLElement {
         <div><div class="title">${esc(cfg.title || name)}${demo ? "<small>Démo</small>" : ""}</div><div class="sub">${cfg.title ? `${esc(name)} · ` : ""}${sub}</div></div></div>
         ${chips ? `<div class="tk-side">${chips}</div>` : ""}
       </header>
-      ${panels.length > 1 ? `<div class="pc-tabs">${panels.map(([i, l], n) => `<button class="pc-tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}${panels[n][3] === "notifs" ? ` <small>${notifs.length}</small>` : ""}</button>`).join("")}</div>` : ""}
+      ${panels.length > 1 ? `<div class="pc-tabs">${panels.map(([i, l], n) => `<button class="pc-tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}${panels[n][3] === "notifs" ? ` <small>${appN.length + sysN.length}</small>` : ""}</button>`).join("")}</div>` : ""}
       ${panels.map(([, , p], n) => `<div class="panel${n === this._tab ? " on" : ""}">${p}</div>`).join("")}
       ${!panels.length && !demo ? `<div class="empty">${cfg.person ? "<b>Aucun capteur de téléphone trouvé</b><span>Indiquez-les dans l'éditeur de la carte (section Téléphone).</span>" : "<b>Choisissez une personne</b><span>dans l'éditeur de la carte.</span>"}</div>` : ""}`;
 
@@ -603,6 +629,7 @@ const SCHEMA = [
   { name: "find_phone_script", selector: { entity: { domain: ["script", "button", "input_button"] } } },
   { name: "heart_rate", selector: ent("sensor") },
   { name: "notifications", selector: { boolean: {} } },
+  { name: "system_notifications", selector: { boolean: {} } },
   { name: "notifications_max", selector: { number: { min: 1, max: 50, mode: "box" } } },
   { name: "theme", selector: { select: { mode: "dropdown", options: THEMES.map(([value, label]) => ({ value, label })) } } },
   { name: "demo", selector: { boolean: {} } },
@@ -619,12 +646,13 @@ const LABELS = {
   find_phone_script: "Bouton « Faire sonner le téléphone » : script ou bouton",
   heart_rate: "Fréquence cardiaque (montre)",
   notifications: "Afficher le contenu des notifications et le dernier SMS",
-  notifications_max: "Nombre de notifications listées au plus",
+  system_notifications: "Afficher aussi les notifications du système (Android, constructeur, services Google)",
+  notifications_max: "Nombre de notifications listées au plus, par section",
   theme: "Couleurs de la carte",
   demo: "Mode démo : personne et téléphone fictifs, pour les captures d'écran",
   ...Object.fromEntries(PHONE_GROUPS.flatMap(([, f]) => f.map(([k, l]) => [k, l]))),
 };
-const DEFAULTS = { title: "", theme: "v2", notifications: true, notifications_max: 20, demo: false };
+const DEFAULTS = { title: "", theme: "v2", notifications: true, system_notifications: true, notifications_max: 20, demo: false };
 
 class TrackerCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
