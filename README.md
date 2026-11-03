@@ -47,9 +47,10 @@ Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de
 
 ### Avec HACS (recommandé)
 
-1. Dans HACS, menu **⋮** → **Dépôts personnalisés**.
-2. Adresse `https://github.com/Marlboro62/tracker`, type **Tableau de bord** (Dashboard), puis **Ajouter**.
-3. Cherchez **Carte Présence et téléphone**, installez-la, puis rechargez la page (Ctrl+F5).
+1. Dans HACS, cherchez **Carte Présence et téléphone** et installez-la.
+2. Rechargez la page (Ctrl+F5).
+
+Si la carte n'apparaît pas encore dans la recherche de HACS, ajoutez le dépôt à la main : menu **⋮** → **Dépôts personnalisés**, adresse `https://github.com/Marlboro62/tracker`, type **Tableau de bord** (Dashboard), puis cherchez **Carte Présence et téléphone**.
 
 ### Manuelle
 
