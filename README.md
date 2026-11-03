@@ -1,0 +1,155 @@
+<p>
+  ☕ <strong>Si cette carte vous est utile, vous pouvez soutenir le projet :</strong>
+</p>
+
+<div style="white-space: nowrap; line-height: 0;">
+  <a
+    href="https://www.buymeacoffee.com/Marlboro62"
+    target="_blank"
+    rel="noopener noreferrer"
+    style="display: inline-block; text-decoration: none; vertical-align: middle;"
+  ><img
+    src="https://img.buymeacoffee.com/button-api/?text=Offrir%20un%20caf%C3%A9&emoji=%E2%98%95&slug=Marlboro62&button_colour=FF5F5F&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00"
+    alt="Offrir un café sur Buy Me a Coffee"
+    height="45"
+    style="display: block; border: 0;"
+  ></a>&nbsp;&nbsp;<a
+    href="https://ko-fi.com/M4M2QL45X"
+    target="_blank"
+    rel="noopener noreferrer"
+    style="display: inline-block; text-decoration: none; vertical-align: middle;"
+  ><img
+    src="https://storage.ko-fi.com/cdn/kofi6.png?v=6"
+    alt="Soutenir le projet sur Ko-fi"
+    height="45"
+    style="display: block; border: 0;"
+  ></a>
+</div>
+
+
+# Carte Présence et téléphone
+
+Une carte Lovelace pour Home Assistant qui montre **où est une personne** et **l'état de son téléphone** : batterie et charge, activité, distance de la maison, sonnerie, notifications, prochaine alarme, Wi-Fi, réseau mobile, Bluetooth, carte SIM, GPS, adresse, IP publique. Tout est **en français**.
+
+Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de son téléphone** (application compagnon Home Assistant, Android ou iPhone). Aucun YAML à écrire, aucune intégration en plus.
+
+| Téléphone | Réseau | Infos | Clair |
+|---|---|---|---|
+| ![Onglet Téléphone](images/telephone.png) | ![Onglet Réseau](images/reseau.png) | ![Onglet Infos](images/infos.png) | ![Couleurs claires](images/clair.png) |
+
+*Captures réalisées en mode démo : personne, adresse et téléphone fictifs.*
+
+## Installation
+
+### Avec HACS (recommandé)
+
+1. Dans HACS, menu **⋮** → **Dépôts personnalisés**.
+2. Adresse `https://github.com/Marlboro62/tracker`, type **Tableau de bord** (Dashboard), puis **Ajouter**.
+3. Cherchez **Carte Présence et téléphone**, installez-la, puis rechargez la page (Ctrl+F5).
+
+### Manuelle
+
+Copiez `tracker-card.js` dans `/config/www/`, puis ajoutez la ressource `/local/tracker-card.js` (type **Module JavaScript**) dans **Paramètres → Tableaux de bord → ⋮ → Ressources**.
+
+## Configuration
+
+Le plus simple : **Modifier le tableau de bord → Ajouter une carte → Présence et téléphone**, puis choisissez la personne. Ou en YAML :
+
+```yaml
+type: custom:tracker-card
+person: person.camille
+```
+
+C'est tout : le suivi de position de la personne mène à son téléphone, et la carte prend les capteurs de l'application compagnon de cet appareil. Les tuiles sans capteur ne s'affichent pas, un onglet vide non plus.
+
+### Options
+
+| Option | Description | Défaut |
+|---|---|---|
+| `person` | La personne suivie (`person.…`) | — |
+| `name` | Nom affiché | celui de la personne |
+| `picture` | Photo (adresse d'une image) | celle de la personne |
+| `title` | Titre de la carte (vide : pas de titre) | `Présence` |
+| `theme` | `v2` bleu nuit, `auto` clair ou sombre selon Home Assistant, `ha` couleurs du thème Home Assistant | `v2` |
+| `find_phone_script` | Script ou bouton qui fait sonner le téléphone : affiche le bouton **Faire sonner le téléphone** | — |
+| `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |
+| `demo` | `true` : personne et téléphone fictifs, pour partager une capture sans rien dévoiler | `false` |
+| `phone` | Entités du téléphone à utiliser à la place de celles trouvées automatiquement (voir ci-dessous) | — |
+
+### Capteurs du téléphone
+
+Activez-les dans l'application compagnon (**Paramètres → Application compagnon → Gérer les capteurs**). La carte les reconnaît à la fin de leur identifiant :
+
+| Clé sous `phone:` | Capteur de l'application compagnon | Affichage |
+|---|---|---|
+| `battery` | `…_battery_level` | Batterie (en-tête et jauge) |
+| `charging` / `battery_state` | `…_is_charging` (Android) / `…_battery_state` (iPhone) | En charge |
+| `charger_type` | `…_charger_type` | Secteur, USB, sans fil |
+| `activity` | `…_detected_activity` (Android) / `…_activity` (iPhone) | Activité |
+| `ringer` | `…_ringer_mode` | Sonnerie |
+| `notif_count` | `…_active_notification_count` | Notifications |
+| `next_alarm` | `…_next_alarm` | Prochaine alarme (en rouge dans l'heure qui vient) |
+| `network_type` | `…_network_type` / `…_connection_type` | Pastille réseau |
+| `data_network` | `…_data_network_type_sim_1` | Réseau mobile (4G, 5G…) |
+| `wifi_state` / `wifi_ssid` | `…_wifi_state` / `…_wifi_connection` ou `…_ssid` | Wi-Fi |
+| `hotspot` | `…_hotspot_state` | Partage de connexion |
+| `bt_state` / `bt_conn` | `…_bluetooth_state` / `…_bluetooth_connection` | Bluetooth |
+| `sim` | `…_sim_1` | Carte SIM |
+| `high_acc` | `…_high_accuracy_mode` | GPS haute précision |
+| `geocoded` | `…_geocoded_location` | Adresse, rue et ville |
+| `public_ip` | `…_public_ip_address` | IP publique |
+| `last_reboot` | `…_last_reboot` | Dernier redémarrage |
+| `tracker` | le `device_tracker` du téléphone | Distance calculée depuis la maison |
+| `proximity` | un capteur de distance (intégration Proximité, en km ou en m) | Distance |
+| `rue` / `ville` | vos propres capteurs | Rue et ville |
+
+Sans capteur `proximity`, la distance est calculée entre la position du téléphone et la zone Maison. Sans `rue` ni `ville`, elles sont lues dans l'adresse géocodée.
+
+Pour forcer une entité, indiquez-la sous `phone:` ; les autres restent détectées :
+
+```yaml
+type: custom:tracker-card
+person: person.camille
+heart_rate: sensor.montre_camille_heart_rate
+find_phone_script: script.faire_sonner_camille
+phone:
+  proximity: sensor.maison_camille_distance
+```
+
+### Interactions
+
+- **Onglets** Téléphone, Réseau, Infos.
+- **Clic sur une tuile**, la batterie ou la photo : ouvre la fenêtre de détails de Home Assistant (historique, attributs). Sur la tuile Notifications, on y retrouve le détail des notifications reçues.
+- **Faire sonner le téléphone** : lance le script (ou appuie sur le bouton) indiqué dans `find_phone_script`.
+
+## Vie privée
+
+La carte affiche la position et l'adresse de la personne suivie : réservez-la aux tableaux de bord des personnes concernées. Elle ne contacte aucun service extérieur, tout est lu dans Home Assistant. Pour une capture à partager, activez le **mode démo** (`demo: true`).
+
+## Démo
+
+Ouvrez [`docs/demo.html`](docs/demo.html) avec un petit serveur web local (par exemple `python3 -m http.server` à la racine du dépôt) : deux personnes fictives, avec la détection automatique des capteurs.
+
+## Support
+
+Questions, bugs et idées : uniquement via les **[Issues GitHub](https://github.com/Marlboro62/tracker/issues)**, pour que tout le monde profite des réponses.
+
+## Licence
+
+MIT
+
+## Nom du projet et forks
+
+Ce dépôt est la seule source officielle de la **Carte Présence et téléphone** (releases, HACS, support),
+maintenu par [Marlboro62](https://github.com/Marlboro62).
+
+La licence MIT autorise à copier, modifier et redistribuer le code. Si vous publiez une version modifiée :
+
+- gardez les mentions de copyright du fichier [`LICENSE`](https://github.com/Marlboro62/tracker/blob/main/LICENSE) (© Marlboro62) ;
+- **donnez-lui un autre nom** et un autre type de carte (`custom:tracker-card` est celui de ce dépôt) :
+  Home Assistant ne peut pas charger deux cartes du même type, et personne ne doit confondre les deux versions dans HACS ;
+- ne la présentez pas comme la version officielle et n'orientez pas vers ce dépôt les demandes
+  de support qui concernent votre version.
+
+Une correction ou une idée ? Les **pull requests** et les **issues** sont les bienvenues ici :
+elles profitent à tous les utilisateurs.

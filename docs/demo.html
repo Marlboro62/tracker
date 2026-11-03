@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Présence et téléphone — démo</title>
+<style>
+  body { margin: 0; padding: 24px; background: #0b0b0b; color: #ddd; font-family: system-ui, sans-serif; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
+  p { margin: 0 0 18px; font-size: 13px; color: #999; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 420px)); gap: 16px; align-items: start; }
+</style>
+<script>
+  // ha-icon de démonstration : icônes Material Design Icons servies par jsDelivr (page de démo uniquement)
+  customElements.define("ha-icon", class extends HTMLElement {
+    static get observedAttributes() { return ["icon"]; }
+    attributeChangedCallback() { this._draw(); }
+    connectedCallback() { this._draw(); }
+    async _draw() {
+      const name = (this.getAttribute("icon") || "").replace("mdi:", "");
+      if (!name || this._n === name) return;
+      this._n = name;
+      const url = `https://cdn.jsdelivr.net/npm/@mdi/svg@7.4.47/svg/${name}.svg`;
+      const svg = await fetch(url).then((r) => (r.ok ? r.text() : "")).catch(() => "");
+      const size = "var(--mdc-icon-size, 24px)";
+      this.style.cssText = `display:inline-flex;width:${size};height:${size};`;
+      this.innerHTML = svg.replace("<svg", `<svg style="width:100%;height:100%;fill:currentColor"`);
+    }
+  });
+</script>
+</head>
+<body>
+<h1>Présence et téléphone</h1>
+<p>Démo : personnes et téléphones fictifs. Couleurs :
+  <select id="theme"><option value="v2">bleu nuit</option><option value="auto">clair</option><option value="ha">Home Assistant</option></select></p>
+<div class="grid" id="grid"></div>
+<script type="module">
+await import("../tracker-card.js");
+const H = 3600e3, now = Date.now();
+const states = {}, entities = {};
+const add = (id, state, attributes = {}, device) => {
+  states[id] = { entity_id: id, state: String(state), attributes };
+  entities[id] = { entity_id: id, device_id: device || null, platform: device ? "mobile_app" : "demo" };
+};
+// maison fictive (centre de la France)
+add("zone.home", "0", { latitude: 46.5, longitude: 2.5, friendly_name: "Maison" });
+// Camille : téléphone Android, hors de la maison, détecté automatiquement
+add("person.camille", "not_home", { friendly_name: "Camille", device_trackers: ["device_tracker.pixel_camille"] });
+const d1 = "dev_camille";
+add("device_tracker.pixel_camille", "not_home", { latitude: 46.52, longitude: 2.53 }, d1);
+add("sensor.pixel_camille_battery_level", 64, { unit_of_measurement: "%" }, d1);
+add("binary_sensor.pixel_camille_is_charging", "on", {}, d1);
+add("sensor.pixel_camille_charger_type", "wireless", {}, d1);
+add("sensor.pixel_camille_network_type", "cellular", {}, d1);
+add("binary_sensor.pixel_camille_wifi_state", "off", {}, d1);
+add("sensor.pixel_camille_wifi_connection", "<not connected>", {}, d1);
+add("binary_sensor.pixel_camille_hotspot_state", "off", {}, d1);
+add("binary_sensor.pixel_camille_bluetooth_state", "on", {}, d1);
+add("sensor.pixel_camille_bluetooth_connection", "Écouteurs démo", {}, d1);
+add("sensor.pixel_camille_sim_1", "Opérateur démo", {}, d1);
+add("sensor.pixel_camille_data_network_type_sim_1", "5G", {}, d1);
+add("sensor.pixel_camille_detected_activity", "walking", {}, d1);
+add("binary_sensor.pixel_camille_high_accuracy_mode", "off", {}, d1);
+add("sensor.pixel_camille_ringer_mode", "vibrate", {}, d1);
+add("sensor.pixel_camille_active_notification_count", 3, {}, d1);
+add("sensor.pixel_camille_next_alarm", new Date(now + 13.5 * H).toISOString(), {}, d1);
+add("sensor.pixel_camille_geocoded_location", "12 rue des Lilas, 00000 Villeneuve", { Thoroughfare: "rue des Lilas", "Sub Thoroughfare": "12", Locality: "Villeneuve" }, d1);
+add("sensor.pixel_camille_public_ip_address", "203.0.113.42", {}, d1);
+add("sensor.pixel_camille_last_reboot", new Date(now - 80 * H).toISOString(), {}, d1);
+add("sensor.montre_camille_heart_rate", 78);
+// Dominique : iPhone, à la maison, sur le Wi-Fi
+add("person.dominique", "home", { friendly_name: "Dominique", device_trackers: ["device_tracker.iphone_dominique"] });
+const d2 = "dev_dominique";
+add("device_tracker.iphone_dominique", "home", { latitude: 46.5, longitude: 2.5 }, d2);
+add("sensor.iphone_dominique_battery_level", 18, { unit_of_measurement: "%" }, d2);
+add("sensor.iphone_dominique_battery_state", "Not Charging", {}, d2);
+add("sensor.iphone_dominique_ssid", "Wi-Fi maison", {}, d2);
+add("sensor.iphone_dominique_connection_type", "Wi-Fi", {}, d2);
+add("sensor.iphone_dominique_activity", "Stationary", {}, d2);
+add("sensor.iphone_dominique_geocoded_location", "Villeneuve", { Locality: "Villeneuve" }, d2);
+
+const params = new URLSearchParams(location.search), theme = params.get("theme") || "v2";
+document.getElementById("theme").value = theme;
+document.getElementById("theme").onchange = (e) => { location.search = "?theme=" + e.target.value; };
+const hass = {
+  config: { latitude: 46.5, longitude: 2.5 }, themes: { darkMode: theme !== "auto" }, states, entities,
+  callService: async (...a) => console.log("service", ...a),
+};
+for (const cfg of [
+  { person: "person.camille", heart_rate: "sensor.montre_camille_heart_rate", find_phone_script: "script.sonner_camille" },
+  { person: "person.dominique" },
+]) {
+  const el = document.createElement("tracker-card");
+  el.setConfig({ ...cfg, theme });
+  document.getElementById("grid").appendChild(el);
+  el.hass = hass;
+}
+</script>
+</body>
+</html>
