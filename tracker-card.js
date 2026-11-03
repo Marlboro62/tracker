@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.0.0-beta.1";
+const CARD_VERSION = "1.0.0-beta.2";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -56,7 +56,7 @@ const CSS = THEME_CSS + `
 :host{display:block;font-family:var(--g-font);font-size:16px;}
 *{box-sizing:border-box;}
 ha-card{
-  display:block;position:relative;overflow:hidden;background:var(--g-bg);color:var(--g-text);
+  display:block;position:relative;container-type:inline-size;overflow:hidden;background:var(--g-bg);color:var(--g-text);
   border-radius:16px;border:1px solid color-mix(in srgb,var(--g-edge) 22%,transparent);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 28px rgba(0,0,0,.45);padding:16px;
 }
@@ -89,7 +89,9 @@ ha-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
 .tab{flex:1;min-width:90px;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 8px;border-radius:8px;cursor:pointer;user-select:none;
   font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--g-muted);
   background:var(--g-panel);border:1px solid color-mix(in srgb,var(--g-edge) 22%,transparent);}
-.tab ha-icon{--mdc-icon-size:15px;}
+.tab ha-icon{--mdc-icon-size:15px;flex:none;}
+.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@container (max-width:480px){.tabs.n4 .tab{min-width:0;flex:0 0 auto;padding:6px 12px}.tabs.n4 .tab.on{flex:1}.tabs.n4 .tab:not(.on) span{display:none}}
 .tab.on{color:var(--g-acc2);border-color:color-mix(in srgb,var(--g-acc) 60%,transparent);background:color-mix(in srgb,var(--g-acc) 14%,var(--g-panel));}
 .panel{display:none;}
 .panel.on{display:block;}
@@ -103,7 +105,7 @@ ha-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
 .tile{padding:9px 10px;border-radius:10px;background:var(--g-panel);min-width:0;
   border:1px solid color-mix(in srgb,var(--c,var(--g-edge)) 30%,transparent);}
-.tile[data-entity]{cursor:pointer;}
+.tile[data-entity],.tile[data-goto]{cursor:pointer;}
 .tile[data-entity]:hover{border-color:color-mix(in srgb,var(--c,var(--g-acc)) 70%,transparent);}
 .tile.wide{grid-column:1/-1;}
 .lbl{font-size:.66rem;letter-spacing:1.2px;text-transform:uppercase;color:var(--g-muted);margin-bottom:4px;}
@@ -125,6 +127,16 @@ ha-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
   background:color-mix(in srgb,var(--err) 10%,transparent);border:1px solid color-mix(in srgb,var(--err) 40%,transparent);font-family:inherit;}
 .find:hover,.find.busy{background:color-mix(in srgb,var(--err) 22%,transparent);}
 .find ha-icon{--mdc-icon-size:18px;}
+.notifs{display:flex;flex-direction:column;gap:6px;}
+.nt{display:flex;gap:10px;padding:8px 10px;border-radius:10px;background:var(--g-panel);border:1px solid color-mix(in srgb,var(--g-edge) 22%,transparent);min-width:0;}
+.nt > ha-icon{--mdc-icon-size:20px;color:var(--g-acc2);flex:none;margin-top:2px;}
+.nt .b{min-width:0;flex:1;}
+.nt .h{display:flex;gap:6px;align-items:baseline;font-size:.68rem;letter-spacing:1px;text-transform:uppercase;color:var(--g-muted);}
+.nt .h span:last-child{margin-left:auto;text-transform:none;letter-spacing:0;white-space:nowrap;}
+.nt .t{font-size:.88rem;font-weight:700;color:var(--g-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.nt .m{font-size:.82rem;color:var(--g-muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
+.sms .val{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.sms .from{font-size:.72rem;color:var(--g-muted);margin-top:2px;}
 .empty{text-align:center;padding:14px 8px;font-size:.85rem;color:var(--g-muted);}
 @media (max-width:420px){ha-card{padding:13px}.tab{min-width:70px}}
 `;
@@ -176,6 +188,42 @@ const PHONE_GROUPS = [
   ["Système", [["public_ip", "IP publique", "sensor"], ["last_reboot", "Dernier redémarrage", "sensor"]]],
 ];
 
+/* Notifications Android : attributs « <application>_<id>_post_time », « android.title_<application>_<id> »… */
+const APPS = {
+  "com.whatsapp": ["WhatsApp", "mdi:whatsapp"], "com.whatsapp.w4b": ["WhatsApp Business", "mdi:whatsapp"],
+  "com.google.android.apps.messaging": ["Messages", "mdi:message-text"], "com.samsung.android.messaging": ["Messages", "mdi:message-text"], "com.android.mms": ["Messages", "mdi:message-text"],
+  "com.google.android.gm": ["Gmail", "mdi:gmail"], "org.telegram.messenger": ["Telegram", "mdi:send"], "org.thoughtcrime.securesms": ["Signal", "mdi:message-lock"],
+  "com.facebook.orca": ["Messenger", "mdi:facebook-messenger"], "com.facebook.katana": ["Facebook", "mdi:facebook"], "com.instagram.android": ["Instagram", "mdi:instagram"],
+  "com.snapchat.android": ["Snapchat", "mdi:snapchat"], "com.discord": ["Discord", "mdi:message-processing"], "com.google.android.youtube": ["YouTube", "mdi:youtube"],
+  "com.spotify.music": ["Spotify", "mdi:spotify"], "com.google.android.dialer": ["Téléphone", "mdi:phone"], "com.samsung.android.dialer": ["Téléphone", "mdi:phone"],
+  "com.google.android.calendar": ["Agenda", "mdi:calendar"], "com.android.vending": ["Play Store", "mdi:google-play"], "io.homeassistant.companion.android": ["Home Assistant", "mdi:home-assistant"],
+  "com.android.systemui": ["Système", "mdi:android"], "com.google.android.deskclock": ["Horloge", "mdi:alarm"], "com.sec.android.app.clockpackage": ["Horloge", "mdi:alarm"],
+};
+const SMS_APPS = ["com.google.android.apps.messaging", "com.samsung.android.messaging", "com.android.mms"];
+const appInfo = (pkg) => APPS[pkg] || [(pkg.split(".").pop() || pkg).replace(/^./, (c) => c.toUpperCase()), "mdi:bell-outline"];
+const readNotifs = (st) => {
+  const a = st?.attributes || {}, out = [];
+  for (const k of Object.keys(a)) {
+    if (!k.endsWith("_post_time")) continue;
+    const pre = k.slice(0, -10);
+    const title = a[`android.title_${pre}`] || a[`android.title.big_${pre}`] || "";
+    const text = a[`android.text_${pre}`] || a[`android.bigText_${pre}`] || a[`android.big_text_${pre}`] || a[`android.title.big_${pre}`] || "";
+    const pkg = pre.replace(/_+$/, "").split("_")[0];
+    if (!ok(title) && !ok(text)) continue;
+    out.push({ pkg, title: ok(title) ? String(title).trim() : "", text: ok(text) && text !== title ? String(text).trim() : "", t: parseInt(a[k], 10) || 0 });
+  }
+  return out.sort((x, y) => y.t - x.t);
+};
+const ago = (ms) => {
+  if (!ms) return "";
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return "à l'instant";
+  if (m < 60) return `il y a ${m} min`;
+  if (m < 24 * 60) return `il y a ${Math.floor(m / 60)} h`;
+  return new Date(ms).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+};
+const slug = (v) => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+
 /* ---------------------------------------------------------------- démo */
 const DEMO = (() => {
   const t = (h) => new Date(Date.now() + h * 3600e3).toISOString();
@@ -185,6 +233,11 @@ const DEMO = (() => {
     hotspot: "off", bt_state: "on", bt_conn: "Écouteurs démo", sim: "Opérateur démo", activity: "walking", high_acc: "off",
     ringer: "vibrate", notif_count: "3", next_alarm: t(13.5), geocoded: "12 rue des Lilas, Villeneuve", rue: "12 rue des Lilas", ville: "Villeneuve",
     proximity: "2.4", public_ip: "203.0.113.42", last_reboot: t(-80), heart_rate: "78",
+    notifs: [
+      { pkg: "com.google.android.apps.messaging", title: "Dominique", text: "Je passe prendre le pain en rentrant, il te faut autre chose ?", t: Date.now() - 4 * 60e3 },
+      { pkg: "com.whatsapp", title: "Famille démo", text: "Photo", t: Date.now() - 38 * 60e3 },
+      { pkg: "io.homeassistant.companion.android", title: "Lave-linge", text: "Le cycle est terminé.", t: Date.now() - 2.5 * 3600e3 },
+    ],
   };
 })();
 
@@ -256,7 +309,7 @@ class TrackerCard extends HTMLElement {
     applyTheme(this, this._config.theme, h);
     const ents = this._entities();
     const fp = this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents)]
-      .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") : "x"; }).join(";");
+      .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") + (e === ents.notif_count ? JSON.stringify(s.attributes) : "") : "x"; }).join(";");
     if (fp === this._fp) return;
     this._fp = fp;
     this._render(!this.shadowRoot.querySelector("ha-card"));
@@ -285,7 +338,22 @@ class TrackerCard extends HTMLElement {
         if (hit) { out[key] = hit; break; }
       }
     }
-    for (const k of ["proximity", "rue", "ville"]) if (cfg.phone[k]) out[k] = cfg.phone[k];
+    // capteurs nommés d'après la personne ou le téléphone : sensor.<prénom>_rue, _ville, _proximity_km
+    const names = [...new Set([cfg.person?.split(".")[1], slug(person?.attributes?.friendly_name), tracker?.split(".")[1]].filter((x) => x && x.length > 1))];
+    const st = h?.states || {};
+    const own = (sfx) => names.map((n) => `sensor.${n}_${sfx}`).find((e) => st[e]);
+    for (const [k, sfx] of [["rue", ["rue"]], ["ville", ["ville"]], ["proximity", ["proximity_km", "proximity", "distance"]]]) {
+      if (cfg.phone[k]) { out[k] = cfg.phone[k]; continue; }
+      const hit = sfx.map(own).find(Boolean);
+      if (hit) out[k] = hit;
+    }
+    // intégration Proximité : capteur de distance à la zone qui porte le nom de la personne ou du téléphone
+    if (!out.proximity) {
+      const cand = Object.keys(reg).filter((e) => reg[e].platform === "proximity" && e.startsWith("sensor.") && !/nearest|plus_proche|direction/.test(e)
+        && ["m", "km", "mi", "ft"].includes(st[e]?.attributes?.unit_of_measurement) && names.some((n) => e.includes(n)));
+      const hit = cand.find((e) => /dist/.test(e)) || cand[0];
+      if (hit) out.proximity = hit;
+    }
     this._ents = out; this._entsFor = h?.states;
     return out;
   }
@@ -312,14 +380,17 @@ class TrackerCard extends HTMLElement {
     // adresse : capteurs rue/ville, sinon attributs de l'adresse géocodée
     const geoSt = this._st("geocoded");
     const geo = this._v("geocoded");
-    const rue = this._v("rue") || (demo ? null : [attr(geoSt, "Sub Thoroughfare"), attr(geoSt, "Thoroughfare")].filter(Boolean).join(" ") || null);
-    const ville = this._v("ville") || (demo ? null : attr(geoSt, "Locality"));
+    const parts = demo || !geo ? [] : String(geo).split(",").map((x) => x.trim()).filter(Boolean);
+    const rue = this._v("rue") || (demo ? null : [attr(geoSt, "Sub Thoroughfare"), attr(geoSt, "Thoroughfare")].filter(Boolean).join(" ") || (parts.length > 1 ? parts[0] : null));
+    const ville = this._v("ville") || (demo ? null : attr(geoSt, "Locality") || (parts.length > 1 ? parts[1].replace(/^\d{4,6}\s+/, "") : null));
     const where = geo || [rue, ville].filter(Boolean).join(", ");
 
     // distance : capteur proximity, sinon calculée entre le téléphone et la maison
     let km = parseFloat(this._v("proximity"));
     const proxSt = this._st("proximity");
-    if (Number.isFinite(km) && proxSt?.attributes?.unit_of_measurement === "m") km /= 1000;
+    const unit = proxSt?.attributes?.unit_of_measurement;
+    if (Number.isFinite(km)) km = unit === "m" ? km / 1000 : unit === "mi" ? km * 1.609344 : unit === "ft" ? km * 0.0003048 : km;
+    if (Number.isFinite(km) && km < 0.05) km = 0;
     if (!Number.isFinite(km) && !demo && !home) {
       const src = this._st("tracker") || person;
       const la = parseFloat(src?.attributes?.latitude), lo = parseFloat(src?.attributes?.longitude);
@@ -350,7 +421,7 @@ class TrackerCard extends HTMLElement {
     const has = (k) => !!pick(k);
     const ent = (k) => { const x = pick(k); return demo || !x ? "" : ` data-entity="${esc(E[x])}"`; };
     const tile = (k, label, icon, val, color, extra = "") => has(k)
-      ? `<div class="tile${extra}"${ent(k)} style="${color ? `--c:var(${color})` : ""}"><div class="lbl">${esc(label)}</div><div class="row"><ha-icon icon="${esc(icon)}"></ha-icon><span class="val${extra.includes("mono") ? " mono" : ""}">${esc(val ?? "—")}</span></div></div>`
+      ? `<div class="tile${extra.replace(" goto", "")}"${extra.includes("goto") ? ` data-goto="notifs"` : ent(k)} style="${color ? `--c:var(${color})` : ""}"><div class="lbl">${esc(label)}</div><div class="row"><ha-icon icon="${esc(icon)}"></ha-icon><span class="val${extra.includes("mono") ? " mono" : ""}">${esc(val ?? "—")}</span></div></div>`
       : "";
 
     // onglet Téléphone
@@ -361,6 +432,8 @@ class TrackerCard extends HTMLElement {
     const ring = String(this._v("ringer") || "").toLowerCase();
     const [rIcon, rLbl, rCol] = RINGER[ring] || ["mdi:bell-outline", ring || "—", null];
     const nc = parseInt(this._v("notif_count"), 10);
+    const notifs = cfg.notifications === false ? [] : demo ? DEMO.notifs : readNotifs(this._st("notif_count"));
+    const sms = notifs.find((n) => SMS_APPS.includes(n.pkg));
     const ncCol = !Number.isFinite(nc) ? null : nc > 10 ? "--err" : nc > 0 ? "--warn" : "--ok";
     const alarmIso = this._v("next_alarm");
     const alarmMs = alarmIso ? new Date(alarmIso) - Date.now() : NaN;
@@ -381,7 +454,8 @@ class TrackerCard extends HTMLElement {
         </div></div>` : ""}
       <div class="grid">
         ${tile("ringer", "Sonnerie", rIcon, rLbl, rCol)}
-        ${tile("notif_count", "Notifications", "mdi:bell-badge-outline", Number.isFinite(nc) ? String(nc) : "—", ncCol, " mono")}
+        ${tile("notif_count", "Notifications", "mdi:bell-badge-outline", Number.isFinite(nc) ? String(nc) : "—", ncCol, notifs.length ? " mono goto" : " mono")}
+        ${sms ? `<div class="tile wide sms" data-goto="notifs" style="--c:var(--info)"><div class="lbl">Dernier SMS · ${esc(ago(sms.t))}</div><div class="row"><ha-icon icon="mdi:message-text"></ha-icon><div style="min-width:0"><div class="val">${esc(sms.text || sms.title)}</div><div class="from">${esc(sms.title)}</div></div></div></div>` : ""}
         ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--err" : alarm ? "--warn" : null, " wide")}
       </div>
       ${cfg.find_phone_script ? `<button class="find" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon>Faire sonner le téléphone</button>` : ""}`;
@@ -410,8 +484,12 @@ class TrackerCard extends HTMLElement {
       ${tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, " wide")}
     </div>`;
 
-    const panels = [["mdi:cellphone", "Téléphone", p0], ["mdi:wifi", "Réseau", p1], ["mdi:information-outline", "Infos", p2]]
-      .filter(([, , p]) => /class="(tile|bat|act|find)/.test(p));
+    const p3 = notifs.length ? `<div class="notifs">${notifs.slice(0, cfg.notifications_max || 20).map((n) => { const [app, icon] = appInfo(n.pkg); return `
+      <div class="nt"><ha-icon icon="${esc(icon)}"></ha-icon><div class="b"><div class="h"><span>${esc(app)}</span><span>${esc(ago(n.t))}</span></div>
+        ${n.title ? `<div class="t">${esc(n.title)}</div>` : ""}${n.text ? `<div class="m">${esc(n.text)}</div>` : ""}</div></div>`; }).join("")}</div>` : "";
+    const panels = [["mdi:cellphone", "Téléphone", p0], ["mdi:wifi", "Réseau", p1], ["mdi:bell-outline", "Notifications", p3, "notifs"], ["mdi:information-outline", "Infos", p2]]
+      .filter(([, , p]) => /class="(tile|bat|act|find|notifs)/.test(p));
+    this._panelIds = panels.map((x) => x[3] || "");
     if (this._tab >= panels.length) this._tab = 0;
 
     const netChip = net === "wifi" ? ["mdi:wifi", "--ok"] : net === "cellular" ? ["mdi:signal-cellular-3", "--info"] : net.includes("vpn") ? ["mdi:vpn", "--violet"] : ok(net) ? ["mdi:network-strength-off", null] : null;
@@ -437,7 +515,7 @@ class TrackerCard extends HTMLElement {
           ${chips.length ? `<div class="chips">${chips.map(([i, c, t]) => `<span class="chip" title="${esc(t)}" style="${c ? `--c:var(${c})` : ""}"><ha-icon icon="${i}"></ha-icon></span>`).join("")}</div>` : ""}
         </div>
       </div>
-      ${panels.length > 1 ? `<div class="tabs">${panels.map(([i, l], n) => `<div class="tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}</div>`).join("")}</div>` : ""}
+      ${panels.length > 1 ? `<div class="tabs${panels.length > 3 ? " n4" : ""}">${panels.map(([i, l], n) => `<div class="tab${n === this._tab ? " on" : ""}" data-tab="${n}" title="${l}"><ha-icon icon="${i}"></ha-icon><span>${l}</span></div>`).join("")}</div>` : ""}
       ${panels.map(([, , p], n) => `<div class="panel${n === this._tab ? " on" : ""}">${p}</div>`).join("")}
       ${!panels.length && !demo ? `<div class="empty">${cfg.person ? "Aucun capteur de téléphone trouvé pour cette personne : indiquez-les dans l'éditeur (section Téléphone)." : "Choisissez une personne dans l'éditeur de la carte."}</div>` : ""}`;
 
@@ -458,6 +536,8 @@ class TrackerCard extends HTMLElement {
       return;
     }
     if (ev.target.closest("#find")) return this._find(ev.target.closest("#find"));
+    const go = ev.target.closest("[data-goto]");
+    if (go) { const n = (this._panelIds || []).indexOf(go.dataset.goto); const t = n >= 0 && this._card.querySelector(`.tab[data-tab="${n}"]`); if (t) t.click(); return; }
     const el = ev.target.closest("[data-entity]");
     if (el) this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: el.dataset.entity }, bubbles: true, composed: true }));
   }

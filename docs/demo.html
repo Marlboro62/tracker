@@ -62,12 +62,25 @@ add("sensor.pixel_camille_data_network_type_sim_1", "5G", {}, d1);
 add("sensor.pixel_camille_detected_activity", "walking", {}, d1);
 add("binary_sensor.pixel_camille_high_accuracy_mode", "off", {}, d1);
 add("sensor.pixel_camille_ringer_mode", "vibrate", {}, d1);
-add("sensor.pixel_camille_active_notification_count", 3, {}, d1);
+add("sensor.pixel_camille_active_notification_count", 3, {
+  "com.google.android.apps.messaging_0|12|null|10100_post_time": now - 4 * 60e3,
+  "android.title_com.google.android.apps.messaging_0|12|null|10100": "Dominique",
+  "android.text_com.google.android.apps.messaging_0|12|null|10100": "Je passe prendre le pain en rentrant, il te faut autre chose ?",
+  "com.whatsapp_0|3|null|10200_post_time": now - 38 * 60e3,
+  "android.title_com.whatsapp_0|3|null|10200": "Famille démo",
+  "android.text_com.whatsapp_0|3|null|10200": "Photo",
+  "io.homeassistant.companion.android_0|7|null|10300_post_time": now - 2.5 * H,
+  "android.title_io.homeassistant.companion.android_0|7|null|10300": "Lave-linge",
+  "android.text_io.homeassistant.companion.android_0|7|null|10300": "Le cycle est terminé.",
+}, d1);
 add("sensor.pixel_camille_next_alarm", new Date(now + 13.5 * H).toISOString(), {}, d1);
 add("sensor.pixel_camille_geocoded_location", "12 rue des Lilas, 00000 Villeneuve", { Thoroughfare: "rue des Lilas", "Sub Thoroughfare": "12", Locality: "Villeneuve" }, d1);
 add("sensor.pixel_camille_public_ip_address", "203.0.113.42", {}, d1);
 add("sensor.pixel_camille_last_reboot", new Date(now - 80 * H).toISOString(), {}, d1);
 add("sensor.montre_camille_heart_rate", 78);
+// intégration Proximité (distance en mètres)
+add("sensor.maison_distance_camille", 3180, { unit_of_measurement: "m", device_class: "distance" });
+entities["sensor.maison_distance_camille"].platform = "proximity";
 // Dominique : iPhone, à la maison, sur le Wi-Fi
 add("person.dominique", "home", { friendly_name: "Dominique", device_trackers: ["device_tracker.iphone_dominique"] });
 const d2 = "dev_dominique";
@@ -77,7 +90,7 @@ add("sensor.iphone_dominique_battery_state", "Not Charging", {}, d2);
 add("sensor.iphone_dominique_ssid", "Wi-Fi maison", {}, d2);
 add("sensor.iphone_dominique_connection_type", "Wi-Fi", {}, d2);
 add("sensor.iphone_dominique_activity", "Stationary", {}, d2);
-add("sensor.iphone_dominique_geocoded_location", "Villeneuve", { Locality: "Villeneuve" }, d2);
+add("sensor.iphone_dominique_geocoded_location", "3 place du Marché, 00000 Villeneuve, France", {}, d2);
 
 const params = new URLSearchParams(location.search), theme = params.get("theme") || "v2";
 document.getElementById("theme").value = theme;

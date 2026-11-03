@@ -29,13 +29,17 @@
 
 # Carte Présence et téléphone
 
-Une carte Lovelace pour Home Assistant qui montre **où est une personne** et **l'état de son téléphone** : batterie et charge, activité, distance de la maison, sonnerie, notifications, prochaine alarme, Wi-Fi, réseau mobile, Bluetooth, carte SIM, GPS, adresse, IP publique. Tout est **en français**.
+Une carte Lovelace pour Home Assistant qui montre **où est une personne** et **l'état de son téléphone** : batterie et charge, activité, distance de la maison, sonnerie, notifications (avec leur contenu et le dernier SMS), prochaine alarme, Wi-Fi, réseau mobile, Bluetooth, carte SIM, GPS, adresse, IP publique. Tout est **en français**.
 
 Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de son téléphone** (application compagnon Home Assistant, Android ou iPhone). Aucun YAML à écrire, aucune intégration en plus.
 
-| Téléphone | Réseau | Infos | Clair |
-|---|---|---|---|
-| ![Onglet Téléphone](images/telephone.png) | ![Onglet Réseau](images/reseau.png) | ![Onglet Infos](images/infos.png) | ![Couleurs claires](images/clair.png) |
+| Téléphone | Réseau | Notifications |
+|---|---|---|
+| ![Onglet Téléphone](images/telephone.png) | ![Onglet Réseau](images/reseau.png) | ![Onglet Notifications](images/notifications.png) |
+
+| Infos | Clair |
+|---|---|
+| ![Onglet Infos](images/infos.png) | ![Couleurs claires](images/clair.png) |
 
 *Captures réalisées en mode démo : personne, adresse et téléphone fictifs.*
 
@@ -73,6 +77,8 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 | `theme` | `v2` bleu nuit, `auto` clair ou sombre selon Home Assistant, `ha` couleurs du thème Home Assistant | `v2` |
 | `find_phone_script` | Script ou bouton qui fait sonner le téléphone : affiche le bouton **Faire sonner le téléphone** | — |
 | `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |
+| `notifications` | `false` : ne pas afficher le contenu des notifications (onglet Notifications et dernier SMS) | `true` |
+| `notifications_max` | Nombre de notifications listées au plus | `20` |
 | `demo` | `true` : personne et téléphone fictifs, pour partager une capture sans rien dévoiler | `false` |
 | `phone` | Entités du téléphone à utiliser à la place de celles trouvées automatiquement (voir ci-dessous) | — |
 
@@ -100,10 +106,14 @@ Activez-les dans l'application compagnon (**Paramètres → Application compagno
 | `public_ip` | `…_public_ip_address` | IP publique |
 | `last_reboot` | `…_last_reboot` | Dernier redémarrage |
 | `tracker` | le `device_tracker` du téléphone | Distance calculée depuis la maison |
-| `proximity` | un capteur de distance (intégration Proximité, en km ou en m) | Distance |
-| `rue` / `ville` | vos propres capteurs | Rue et ville |
+| `proximity` | capteur de distance de l'intégration **Proximité** (m, km ou miles), ou `sensor.<prénom>_proximity_km` | Distance |
+| `rue` / `ville` | `sensor.<prénom>_rue` / `sensor.<prénom>_ville`, s'ils existent | Rue et ville |
 
-Sans capteur `proximity`, la distance est calculée entre la position du téléphone et la zone Maison. Sans `rue` ni `ville`, elles sont lues dans l'adresse géocodée.
+Ce que la carte calcule elle-même, sans capteur modèle à créer :
+
+- **Distance** : elle prend le capteur de distance de l'intégration **Proximité** qui porte le nom de la personne ou du téléphone. À défaut, elle calcule la distance entre la position du téléphone et la zone Maison. Moins de 50 m compte comme à la maison (0 m).
+- **Rue et ville** : lues dans les attributs de l'adresse géocodée, sinon découpées dans son texte (« rue, code postal ville »).
+- **Notifications** (Android) : le contenu de chaque notification (application, titre, message, heure) est lu dans les attributs du capteur `…_active_notification_count`. L'onglet **Notifications** les liste de la plus récente à la plus ancienne, et la tuile **Dernier SMS** montre le dernier message reçu dans l'application Messages, avec son expéditeur.
 
 Pour forcer une entité, indiquez-la sous `phone:` ; les autres restent détectées :
 
@@ -118,13 +128,14 @@ phone:
 
 ### Interactions
 
-- **Onglets** Téléphone, Réseau, Infos.
-- **Clic sur une tuile**, la batterie ou la photo : ouvre la fenêtre de détails de Home Assistant (historique, attributs). Sur la tuile Notifications, on y retrouve le détail des notifications reçues.
+- **Onglets** Téléphone, Réseau, Notifications, Infos (sur une carte étroite, les onglets inactifs n'affichent que leur icône).
+- **Clic sur une tuile**, la batterie ou la photo : ouvre la fenêtre de détails de Home Assistant (historique, attributs).
+- **Clic sur la tuile Notifications ou Dernier SMS** : ouvre l'onglet Notifications.
 - **Faire sonner le téléphone** : lance le script (ou appuie sur le bouton) indiqué dans `find_phone_script`.
 
 ## Vie privée
 
-La carte affiche la position et l'adresse de la personne suivie : réservez-la aux tableaux de bord des personnes concernées. Elle ne contacte aucun service extérieur, tout est lu dans Home Assistant. Pour une capture à partager, activez le **mode démo** (`demo: true`).
+La carte affiche la position, l'adresse et le contenu des notifications de la personne suivie : réservez-la aux tableaux de bord des personnes concernées, ou masquez les notifications avec `notifications: false`. Elle ne contacte aucun service extérieur, tout est lu dans Home Assistant. Pour une capture à partager, activez le **mode démo** (`demo: true`).
 
 ## Démo
 
