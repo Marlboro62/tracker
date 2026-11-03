@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.0.0-beta.6";
+const CARD_VERSION = "1.0.0-beta.7";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -319,21 +319,37 @@ class TrackerCard extends HTMLElement {
     const person = h?.states?.[cfg.person];
     const trackers = [].concat(person?.attributes?.device_trackers || []);
     const reg = h?.entities || {};
-    let tracker = cfg.phone.tracker || trackers.find((t) => reg[t]?.platform === "mobile_app") || trackers[0];
+    // plusieurs appareils possibles (ancien téléphone, tablette…) : d'abord celui qui donne la position
+    // actuelle de la personne (attribut « source »), puis les autres appareils de l'application compagnon
+    const mobiles = trackers.filter((t) => reg[t]?.platform === "mobile_app");
+    const src = person?.attributes?.source;
+    const order = [...new Set([cfg.phone.tracker, trackers.includes(src) ? src : null, ...mobiles, ...trackers].filter(Boolean))];
+    const tracker = order[0];
     if (tracker) out.tracker = tracker;
     const dev = tracker && reg[tracker]?.device_id;
-    let pool = [];
-    if (dev) pool = Object.keys(reg).filter((e) => reg[e].device_id === dev);
-    else if (tracker) {
-      const obj = tracker.split(".")[1];
-      pool = Object.keys(h?.states || {}).filter((e) => e.split(".")[1]?.startsWith(obj + "_"));
-    }
+    const sts = h?.states || {};
+    const poolOf = (t) => {
+      const d = reg[t]?.device_id;
+      if (d) return Object.keys(reg).filter((e) => reg[e].device_id === d);
+      const obj = t.split(".")[1];
+      return Object.keys(sts).filter((e) => e.split(".")[1]?.startsWith(obj + "_"));
+    };
+    const pools = order.map(poolOf);
+    const live = (e) => sts[e] && ok(sts[e].state);
     for (const [key, res] of Object.entries(PHONE_KEYS)) {
       if (cfg.phone[key]) { out[key] = cfg.phone[key]; continue; }
-      for (const re of res) {
-        const hit = pool.find((e) => re.test(e) && /^(sensor|binary_sensor)\./.test(e));
-        if (hit) { out[key] = hit; break; }
+      let first = null, hit = null;
+      for (const pool of pools) {
+        for (const re of res) {
+          const found = pool.filter((e) => re.test(e) && /^(sensor|binary_sensor)\./.test(e));
+          if (!first && found.length) first = found[0];
+          hit = found.find(live);
+          if (hit) break;
+        }
+        if (hit) break;
       }
+      // une entité qui donne une valeur passe avant une entité indisponible d'un autre appareil
+      if (hit || first) out[key] = hit || first;
     }
     // distance, rue et ville : calculées par la carte ; une entité indiquée sous « phone: » reste prioritaire
     for (const k of ["proximity", "rue", "ville"]) if (cfg.phone[k]) out[k] = cfg.phone[k];
