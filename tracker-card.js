@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.0.0-beta.4";
+const CARD_VERSION = "1.0.0-beta.5";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -168,7 +168,7 @@ const PHONE_KEYS = {
 const PHONE_GROUPS = [
   ["Batterie", [["battery", "Niveau de batterie", "sensor"], ["charging", "En charge", "binary_sensor"], ["battery_state", "État de la batterie (iPhone)", "sensor"], ["charger_type", "Type de chargeur", "sensor"]]],
   ["Réseau", [["network_type", "Type de réseau", "sensor"], ["data_network", "Réseau mobile (4G, 5G…)", "sensor"], ["wifi_state", "Wi-Fi activé", "binary_sensor"], ["wifi_ssid", "Réseau Wi-Fi", "sensor"],
-    ["hotspot", "Partage de connexion", "binary_sensor"], ["bt_state", "Bluetooth activé", "binary_sensor"], ["bt_conn", "Connexion Bluetooth", "sensor"], ["sim", "Carte SIM", "sensor"], ["high_acc", "GPS haute précision", "binary_sensor"]]],
+    ["hotspot", "Partage de connexion", "binary_sensor"], ["vpn", "VPN WireGuard : peer connecté (wgdashboard_monitor)", "binary_sensor"], ["bt_state", "Bluetooth activé", "binary_sensor"], ["bt_conn", "Connexion Bluetooth", "sensor"], ["sim", "Carte SIM", "sensor"], ["high_acc", "GPS haute précision", "binary_sensor"]]],
   ["Activité et notifications", [["activity", "Activité détectée", "sensor"], ["ringer", "Mode de sonnerie", "sensor"], ["notif_count", "Notifications", "sensor"], ["next_alarm", "Prochaine alarme", "sensor"]]],
   ["Localisation", [["tracker", "Suivi de position (device_tracker)", "device_tracker"], ["proximity", "Distance de la maison (facultatif, sinon calculée)", "sensor"], ["geocoded", "Adresse géocodée", "sensor"], ["rue", "Rue", "sensor"], ["ville", "Ville", "sensor"]]],
   ["Système", [["public_ip", "IP publique", "sensor"], ["last_reboot", "Dernier redémarrage", "sensor"]]],
@@ -200,6 +200,15 @@ const readNotifs = (st) => {
   }
   return out.sort((x, y) => y.t - x.t);
 };
+const slug = (v) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+const tokens = (v) => slug(v).split("_").filter((t) => t.length > 1);
+/** Volume de données : valeur et unité du capteur, en unités françaises (Go, Mo…). */
+const UNITS_FR = { B: "o", KB: "ko", kB: "ko", MB: "Mo", GB: "Go", TB: "To", KiB: "Kio", MiB: "Mio", GiB: "Gio", TiB: "Tio" };
+const fmtData = (st) => {
+  if (!st || !ok(st.state)) return "—";
+  const n = parseFloat(st.state), u = st.attributes?.unit_of_measurement || "Go";
+  return Number.isFinite(n) ? `${n.toLocaleString("fr-FR", { maximumFractionDigits: n < 10 ? 2 : 1 })} ${UNITS_FR[u] || u}` : st.state;
+};
 const ago = (ms) => {
   if (!ms) return "";
   const m = Math.round((Date.now() - ms) / 60000);
@@ -218,6 +227,7 @@ const DEMO = (() => {
     hotspot: "off", bt_state: "on", bt_conn: "Écouteurs démo", sim: "Opérateur démo", activity: "walking", high_acc: "off",
     ringer: "vibrate", notif_count: "3", next_alarm: t(13.5), geocoded: "12 rue des Lilas, Villeneuve", rue: "12 rue des Lilas", ville: "Villeneuve",
     proximity: "2.4", public_ip: "203.0.113.42", last_reboot: t(-80), heart_rate: "78",
+    vpn: "on", vpn_handshake: t(-0.03), vpn_rx: "1.24", vpn_tx: "0.38",
     notifs: [
       { pkg: "com.google.android.apps.messaging", title: "Dominique", text: "Je passe prendre le pain en rentrant, il te faut autre chose ?", t: Date.now() - 4 * 60e3 },
       { pkg: "com.whatsapp", title: "Famille démo", text: "Photo", t: Date.now() - 38 * 60e3 },
@@ -325,6 +335,24 @@ class TrackerCard extends HTMLElement {
     }
     // distance, rue et ville : calculées par la carte ; une entité indiquée sous « phone: » reste prioritaire
     for (const k of ["proximity", "rue", "ville"]) if (cfg.phone[k]) out[k] = cfg.phone[k];
+    // VPN WireGuard (intégration wgdashboard_monitor) : le peer dont le nom correspond au téléphone ou à la personne
+    const st = h?.states || {};
+    let vpn = cfg.phone.vpn;
+    if (!vpn) {
+      const d = dev && h?.devices?.[dev];
+      const names = [d?.name_by_user, d?.name, tracker?.split(".")[1], cfg.person?.split(".")[1], person?.attributes?.friendly_name].filter(Boolean).map(tokens).filter((t) => t.length);
+      const sub = (a, b) => a.length && a.every((t) => b.includes(t));
+      vpn = Object.keys(st).find((e) => {
+        if (!/^binary_sensor\..+_connected$/.test(e) || !(reg[e]?.platform === "wgdashboard_monitor" || e.startsWith("binary_sensor.wgdashboard_"))) return false;
+        const peer = tokens(e.slice(14, -10).replace(/^wgdashboard_[a-z0-9]+_/, ""));
+        return names.some((n) => sub(peer, n) || sub(n, peer));
+      });
+    }
+    if (vpn) {
+      out.vpn = vpn;
+      const base = vpn.replace(/^binary_sensor\./, "").replace(/_connected$/, "");
+      for (const [k, sfx] of [["vpn_handshake", "last_handshake"], ["vpn_rx", "data_received"], ["vpn_tx", "data_sent"]]) if (st[`sensor.${base}_${sfx}`]) out[k] = `sensor.${base}_${sfx}`;
+    }
     this._ents = out; this._entsFor = h?.states;
     return out;
   }
@@ -412,7 +440,14 @@ class TrackerCard extends HTMLElement {
     const ncCol = !Number.isFinite(nc) ? null : nc > 10 ? "--t-red" : nc > 0 ? "--pc-warn" : "--med-down";
     const alarmIso = this._v("next_alarm");
     const alarmMs = alarmIso ? new Date(alarmIso) - Date.now() : NaN;
-    const alarm = alarmIso ? fmtDate(alarmIso, true) || alarmIso : null;
+    const alarm = alarmIso ? fmtDate(alarmIso, true) || alarmIso : "Aucune";
+    const vpnOn = this._v("vpn") === "on";
+    const hsIso = this._v("vpn_handshake");
+    const hsMs = hsIso ? Date.parse(hsIso) : NaN;
+    const vData = (k) => demo ? (DEMO[k] ? `${String(DEMO[k]).replace(".", ",")} Go` : "—") : fmtData(this._st(k));
+    const vpnTile = has("vpn") ? `<div class="pc-t"${ent("vpn")}${col(vpnOn ? "--med-down" : null)}><div class="pc-tt"><ha-icon icon="${vpnOn ? "mdi:vpn" : "mdi:lan-disconnect"}"></ha-icon>VPN WireGuard</div>
+        <b>${vpnOn ? "Connecté" : this._v("vpn") ? "Déconnecté" : "—"}</b>
+        <div class="pc-tn">${Number.isFinite(hsMs) ? `Handshake ${esc(ago(hsMs))}` : ""}${has("vpn_rx") || has("vpn_tx") ? `${Number.isFinite(hsMs) ? "<br>" : ""}↓ ${esc(vData("vpn_rx"))} · ↑ ${esc(vData("vpn_tx"))}` : ""}</div></div>` : "";
 
     const batBlock = has("battery") ? `<div class="pc-state ${bl}"${ent("battery")}>
         <ha-icon icon="${batIcon(bat, charging)}"></ha-icon>
@@ -432,8 +467,9 @@ class TrackerCard extends HTMLElement {
       + sec("", "", actBlock)
       + sec("mdi:cellphone-information", "Téléphone", `<div class="pc-ts">
         ${tile("ringer", "Sonnerie", rIcon, rLbl, rCol)}
-        ${tile("notif_count", "Notifications", "mdi:bell-badge-outline", Number.isFinite(nc) ? String(nc) : "—", ncCol, notifs.length ? "goto" : "")}
-        ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : alarm ? "--pc-warn" : null, "wide")}
+        ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : alarmIso ? "--pc-warn" : null)}
+        ${tile("notif_count", "Notifications", "mdi:bell-badge-outline", Number.isFinite(nc) ? String(nc) : "Indisponible", ncCol, notifs.length ? "goto" : "")}
+        ${vpnTile}
         ${smsTile}
       </div>`.replace(/<div class="pc-ts">\s*<\/div>/, ""))
       + (cfg.find_phone_script ? sec("", "", `<button class="pc-btn bad" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon><span>Faire sonner le téléphone</span></button>`) : "");
@@ -484,6 +520,7 @@ class TrackerCard extends HTMLElement {
       has("wifi_state") || has("wifi_ssid") ? `<span class="pc-x" title="Wi-Fi"${col(wifiOn ? "--med-down" : null)}><ha-icon icon="${wifiOn ? "mdi:wifi" : "mdi:wifi-off"}"></ha-icon></span>`
         : netChip ? `<span class="pc-x" title="${esc(netChip[2])}"${col(netChip[1])}><ha-icon icon="${netChip[0]}"></ha-icon></span>` : "",
       hotOn ? `<span class="pc-x" title="Partage de connexion"${col("--pc-warn")}><ha-icon icon="mdi:access-point"></ha-icon></span>` : "",
+      vpnOn ? `<span class="pc-x" title="VPN WireGuard connecté"${ent("vpn")}${col("--pc-violet")}><ha-icon icon="mdi:vpn"></ha-icon></span>` : "",
     ].join("");
 
     const sub = `<b class="${home ? "home" : pstate ? "away" : ""}">${esc(zone || (cfg.person ? "Inconnu" : "Choisissez une personne"))}</b>${where ? ` · ${esc(where)}` : ""}`;
@@ -585,7 +622,7 @@ class TrackerCardEditor extends HTMLElement {
       this._form = document.createElement("ha-form");
       this._form.computeLabel = (s) => s.title || LABELS[s.name] || s.name;
       this._form.computeHelper = (s) => {
-        if (!PHONE_KEYS[s.name] && !["tracker", "proximity", "rue", "ville"].includes(s.name)) {
+        if (!PHONE_KEYS[s.name] && !["tracker", "proximity", "rue", "ville", "vpn"].includes(s.name)) {
           return s.name === "person" ? "Les capteurs du téléphone de cette personne sont trouvés automatiquement." : undefined;
         }
         if (this._config.phone?.[s.name]) return undefined;

@@ -29,7 +29,7 @@
 
 # Carte Présence et téléphone
 
-Une carte Lovelace pour Home Assistant qui montre **où est une personne** et **l'état de son téléphone** : batterie et charge, activité, distance de la maison, sonnerie, notifications (avec leur contenu et le dernier SMS), prochaine alarme, Wi-Fi, réseau mobile, Bluetooth, carte SIM, GPS, adresse, IP publique. Tout est **en français**.
+Une carte Lovelace pour Home Assistant qui montre **où est une personne** et **l'état de son téléphone** : batterie et charge, activité, distance de la maison, sonnerie, notifications (avec leur contenu et le dernier SMS), VPN WireGuard, prochaine alarme, Wi-Fi, réseau mobile, Bluetooth, carte SIM, GPS, adresse, IP publique. Tout est **en français**.
 
 Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de son téléphone** (application compagnon Home Assistant, Android ou iPhone). Aucun YAML à écrire, aucune intégration en plus.
 
@@ -99,6 +99,7 @@ Activez-les dans l'application compagnon (**Paramètres → Application compagno
 | `data_network` | `…_data_network_type_sim_1` | Réseau mobile (4G, 5G…) |
 | `wifi_state` / `wifi_ssid` | `…_wifi_state` / `…_wifi_connection` ou `…_ssid` | Wi-Fi |
 | `hotspot` | `…_hotspot_state` | Partage de connexion |
+| `vpn` | `binary_sensor.wgdashboard_…_connected` (intégration [wgdashboard_monitor](https://github.com/Marlboro62/wgdashboard_monitor)) | VPN WireGuard |
 | `bt_state` / `bt_conn` | `…_bluetooth_state` / `…_bluetooth_connection` | Bluetooth |
 | `sim` | `…_sim_1` | Carte SIM |
 | `high_acc` | `…_high_accuracy_mode` | GPS haute précision |
@@ -113,6 +114,7 @@ Ce que la carte calcule elle-même, sans capteur modèle à créer :
 
 - **Distance** : calculée entre la position GPS du téléphone et la zone Maison, sans intégration Proximité ni capteur. Moins de 50 m compte comme à la maison (0 m).
 - **Rue et ville** : lues dans les attributs de l'adresse géocodée, sinon découpées dans son texte (« rue, code postal ville »).
+- **VPN WireGuard** (intégration wgdashboard_monitor) : la carte prend le peer dont le nom correspond au téléphone ou à la personne (`binary_sensor.wgdashboard_wg0_<peer>_connected`) et affiche, à côté des notifications, s'il est connecté, son dernier handshake et les données reçues et envoyées. Une pastille VPN s'ajoute dans l'en-tête quand il est connecté. Si le nom du peer ne correspond pas, indiquez-le sous `phone: vpn:`.
 - **Notifications** (Android) : le contenu de chaque notification (application, titre, message, heure) est lu dans les attributs du capteur `…_active_notification_count`. L'onglet **Notifications** les liste de la plus récente à la plus ancienne, et la tuile **Dernier SMS** montre le dernier message reçu dans l'application Messages, avec son expéditeur.
 
 Pour forcer une entité, indiquez-la sous `phone:` ; les autres restent détectées :

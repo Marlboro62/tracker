@@ -78,6 +78,12 @@ add("sensor.pixel_camille_geocoded_location", "12 rue des Lilas, 00000 Villeneuv
 add("sensor.pixel_camille_public_ip_address", "203.0.113.42", {}, d1);
 add("sensor.pixel_camille_last_reboot", new Date(now - 80 * H).toISOString(), {}, d1);
 add("sensor.montre_camille_heart_rate", 78);
+// VPN WireGuard (intégration wgdashboard_monitor), peer nommé d'après le téléphone
+add("binary_sensor.wgdashboard_wg0_pixel_camille_connected", "on");
+add("sensor.wgdashboard_wg0_pixel_camille_last_handshake", new Date(now - 2 * 60e3).toISOString());
+add("sensor.wgdashboard_wg0_pixel_camille_data_received", 1.24, { unit_of_measurement: "GB" });
+add("sensor.wgdashboard_wg0_pixel_camille_data_sent", 0.38, { unit_of_measurement: "GB" });
+add("binary_sensor.wgdashboard_wg0_ordi_bureau_connected", "off");
 // Dominique : iPhone, à la maison, sur le Wi-Fi
 add("person.dominique", "home", { friendly_name: "Dominique", device_trackers: ["device_tracker.iphone_dominique"] });
 const d2 = "dev_dominique";
