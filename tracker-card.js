@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.0.0-beta.5";
+const CARD_VERSION = "1.0.0-beta.6";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -82,6 +82,8 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .pc-bar i { display: block; height: 100%; border-radius: 6px; background: var(--med-down); }
 .pc-bar.warn i { background: var(--pc-warn); } .pc-bar.bad i { background: var(--t-red); }
 .pc-ts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.pc-ts.tk-g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@container (min-width: 640px) { .pc-ts.tk-g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .pc-t { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--med-line); background: var(--med-surface); min-width: 0; }
 .pc-t[data-entity], .pc-t[data-goto] { cursor: pointer; }
 .pc-t[data-entity]:hover, .pc-t[data-goto]:hover { border-color: var(--med-accent, var(--med-blue)); }
@@ -465,13 +467,13 @@ class TrackerCard extends HTMLElement {
     const smsTile = sms ? `<div class="pc-t wide multi" data-goto="notifs"><div class="pc-tt"><ha-icon icon="mdi:message-text" style="color:var(--med-accent, var(--med-blue))"></ha-icon>Dernier SMS · ${esc(sms.title)} · ${esc(ago(sms.t))}</div><b>${esc(sms.text || sms.title)}</b></div>` : "";
     const p0 = sec("", "", batBlock)
       + sec("", "", actBlock)
-      + sec("mdi:cellphone-information", "Téléphone", `<div class="pc-ts">
+      + sec("mdi:cellphone-information", "Téléphone", `<div class="pc-ts tk-g4">
         ${tile("ringer", "Sonnerie", rIcon, rLbl, rCol)}
         ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : alarmIso ? "--pc-warn" : null)}
         ${tile("notif_count", "Notifications", "mdi:bell-badge-outline", Number.isFinite(nc) ? String(nc) : "Indisponible", ncCol, notifs.length ? "goto" : "")}
         ${vpnTile}
         ${smsTile}
-      </div>`.replace(/<div class="pc-ts">\s*<\/div>/, ""))
+      </div>`.replace(/<div class="pc-ts tk-g4">\s*<\/div>/, ""))
       + (cfg.find_phone_script ? sec("", "", `<button class="pc-btn bad" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon><span>Faire sonner le téléphone</span></button>`) : "");
 
     // onglet Réseau
