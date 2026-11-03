@@ -78,9 +78,6 @@ add("sensor.pixel_camille_geocoded_location", "12 rue des Lilas, 00000 Villeneuv
 add("sensor.pixel_camille_public_ip_address", "203.0.113.42", {}, d1);
 add("sensor.pixel_camille_last_reboot", new Date(now - 80 * H).toISOString(), {}, d1);
 add("sensor.montre_camille_heart_rate", 78);
-// intégration Proximité (distance en mètres)
-add("sensor.maison_distance_camille", 3180, { unit_of_measurement: "m", device_class: "distance" });
-entities["sensor.maison_distance_camille"].platform = "proximity";
 // Dominique : iPhone, à la maison, sur le Wi-Fi
 add("person.dominique", "home", { friendly_name: "Dominique", device_trackers: ["device_tracker.iphone_dominique"] });
 const d2 = "dev_dominique";

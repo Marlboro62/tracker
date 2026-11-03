@@ -106,12 +106,12 @@ Activez-les dans l'application compagnon (**Paramètres → Application compagno
 | `public_ip` | `…_public_ip_address` | IP publique |
 | `last_reboot` | `…_last_reboot` | Dernier redémarrage |
 | `tracker` | le `device_tracker` du téléphone | Distance calculée depuis la maison |
-| `proximity` | capteur de distance de l'intégration **Proximité** (m, km ou miles), ou `sensor.<prénom>_proximity_km` | Distance |
-| `rue` / `ville` | `sensor.<prénom>_rue` / `sensor.<prénom>_ville`, s'ils existent | Rue et ville |
+| `proximity` | facultatif : un capteur de distance (m, km ou miles) à utiliser à la place du calcul | Distance |
+| `rue` / `ville` | facultatif : vos propres capteurs à la place du découpage de l'adresse | Rue et ville |
 
 Ce que la carte calcule elle-même, sans capteur modèle à créer :
 
-- **Distance** : elle prend le capteur de distance de l'intégration **Proximité** qui porte le nom de la personne ou du téléphone. À défaut, elle calcule la distance entre la position du téléphone et la zone Maison. Moins de 50 m compte comme à la maison (0 m).
+- **Distance** : calculée entre la position GPS du téléphone et la zone Maison, sans intégration Proximité ni capteur. Moins de 50 m compte comme à la maison (0 m).
 - **Rue et ville** : lues dans les attributs de l'adresse géocodée, sinon découpées dans son texte (« rue, code postal ville »).
 - **Notifications** (Android) : le contenu de chaque notification (application, titre, message, heure) est lu dans les attributs du capteur `…_active_notification_count`. L'onglet **Notifications** les liste de la plus récente à la plus ancienne, et la tuile **Dernier SMS** montre le dernier message reçu dans l'application Messages, avec son expéditeur.
 
@@ -123,7 +123,7 @@ person: person.camille
 heart_rate: sensor.montre_camille_heart_rate
 find_phone_script: script.faire_sonner_camille
 phone:
-  proximity: sensor.maison_camille_distance
+  wifi_ssid: sensor.pixel_camille_wifi_connection
 ```
 
 ### Interactions

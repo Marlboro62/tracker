@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.0.0-beta.2";
+const CARD_VERSION = "1.0.0-beta.3";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -184,7 +184,7 @@ const PHONE_GROUPS = [
   ["Réseau", [["network_type", "Type de réseau", "sensor"], ["data_network", "Réseau mobile (4G, 5G…)", "sensor"], ["wifi_state", "Wi-Fi activé", "binary_sensor"], ["wifi_ssid", "Réseau Wi-Fi", "sensor"],
     ["hotspot", "Partage de connexion", "binary_sensor"], ["bt_state", "Bluetooth activé", "binary_sensor"], ["bt_conn", "Connexion Bluetooth", "sensor"], ["sim", "Carte SIM", "sensor"], ["high_acc", "GPS haute précision", "binary_sensor"]]],
   ["Activité et notifications", [["activity", "Activité détectée", "sensor"], ["ringer", "Mode de sonnerie", "sensor"], ["notif_count", "Notifications", "sensor"], ["next_alarm", "Prochaine alarme", "sensor"]]],
-  ["Localisation", [["tracker", "Suivi de position (device_tracker)", "device_tracker"], ["proximity", "Distance de la maison", "sensor"], ["geocoded", "Adresse géocodée", "sensor"], ["rue", "Rue", "sensor"], ["ville", "Ville", "sensor"]]],
+  ["Localisation", [["tracker", "Suivi de position (device_tracker)", "device_tracker"], ["proximity", "Distance de la maison (facultatif, sinon calculée)", "sensor"], ["geocoded", "Adresse géocodée", "sensor"], ["rue", "Rue", "sensor"], ["ville", "Ville", "sensor"]]],
   ["Système", [["public_ip", "IP publique", "sensor"], ["last_reboot", "Dernier redémarrage", "sensor"]]],
 ];
 
@@ -222,7 +222,6 @@ const ago = (ms) => {
   if (m < 24 * 60) return `il y a ${Math.floor(m / 60)} h`;
   return new Date(ms).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 };
-const slug = (v) => String(v || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 
 /* ---------------------------------------------------------------- démo */
 const DEMO = (() => {
@@ -338,22 +337,8 @@ class TrackerCard extends HTMLElement {
         if (hit) { out[key] = hit; break; }
       }
     }
-    // capteurs nommés d'après la personne ou le téléphone : sensor.<prénom>_rue, _ville, _proximity_km
-    const names = [...new Set([cfg.person?.split(".")[1], slug(person?.attributes?.friendly_name), tracker?.split(".")[1]].filter((x) => x && x.length > 1))];
-    const st = h?.states || {};
-    const own = (sfx) => names.map((n) => `sensor.${n}_${sfx}`).find((e) => st[e]);
-    for (const [k, sfx] of [["rue", ["rue"]], ["ville", ["ville"]], ["proximity", ["proximity_km", "proximity", "distance"]]]) {
-      if (cfg.phone[k]) { out[k] = cfg.phone[k]; continue; }
-      const hit = sfx.map(own).find(Boolean);
-      if (hit) out[k] = hit;
-    }
-    // intégration Proximité : capteur de distance à la zone qui porte le nom de la personne ou du téléphone
-    if (!out.proximity) {
-      const cand = Object.keys(reg).filter((e) => reg[e].platform === "proximity" && e.startsWith("sensor.") && !/nearest|plus_proche|direction/.test(e)
-        && ["m", "km", "mi", "ft"].includes(st[e]?.attributes?.unit_of_measurement) && names.some((n) => e.includes(n)));
-      const hit = cand.find((e) => /dist/.test(e)) || cand[0];
-      if (hit) out.proximity = hit;
-    }
+    // distance, rue et ville : calculées par la carte ; une entité indiquée sous « phone: » reste prioritaire
+    for (const k of ["proximity", "rue", "ville"]) if (cfg.phone[k]) out[k] = cfg.phone[k];
     this._ents = out; this._entsFor = h?.states;
     return out;
   }
@@ -397,6 +382,7 @@ class TrackerCard extends HTMLElement {
       const hz = h.states["zone.home"]?.attributes;
       const hla = parseFloat(hz?.latitude ?? h.config?.latitude), hlo = parseFloat(hz?.longitude ?? h.config?.longitude);
       if ([la, lo, hla, hlo].every(Number.isFinite)) km = haversine(la, lo, hla, hlo);
+      if (Number.isFinite(km) && km < 0.05) km = 0;
     }
 
     // batterie
