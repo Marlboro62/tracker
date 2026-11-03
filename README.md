@@ -73,7 +73,7 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 | `person` | La personne suivie (`person.…`) | — |
 | `name` | Nom affiché | celui de la personne |
 | `picture` | Photo (adresse d'une image) | celle de la personne |
-| `title` | Titre de la carte (vide : pas de titre) | `Présence` |
+| `title` | Titre de la carte (vide : le nom de la personne) | — |
 | `theme` | `v2` bleu nuit, `auto` clair ou sombre selon Home Assistant, `ha` couleurs du thème Home Assistant | `v2` |
 | `find_phone_script` | Script ou bouton qui fait sonner le téléphone : affiche le bouton **Faire sonner le téléphone** | — |
 | `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |

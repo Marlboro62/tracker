@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.0.0-beta.3";
+const CARD_VERSION = "1.0.0-beta.4";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -20,126 +20,112 @@ const BAD = new Set(["unavailable", "unknown", "none", "null", ""]);
 const ok = (v) => v != null && !BAD.has(String(v).toLowerCase().trim());
 
 /* ------------------------------------------------------------------ thèmes */
-const THEME_CSS = `
-:host{
-  --g-bg:#1a2434;--g-deep:#131c2a;--g-panel:#212d40;
-  --g-acc:#1d93e3;--g-acc2:#7cc4ff;--g-edge:#5b7fb0;--g-text:#e7edf5;--g-muted:#b4c3d8;
-  --ok:#2ecc71;--warn:#f5a623;--err:#ff5c6c;--info:#1d93e3;--violet:#a06cff;
-  --g-font:var(--ha-font-family-body,var(--paper-font-body1_-_font-family,Roboto,'Noto',sans-serif));
-  --g-font-m:var(--code-font-family,ui-monospace,monospace);
-}
-:host([data-theme="light"]){
-  --g-bg:#ffffff;--g-deep:#eef2f7;--g-panel:#f2f5f9;
-  --g-acc:#1673b8;--g-acc2:#1673b8;--g-edge:#9fb3cc;--g-text:#1a2434;--g-muted:#5b6b82;
-  --ok:#1e9e55;--warn:#c47d00;--err:#d6334a;--info:#1673b8;--violet:#7a45d6;
-}
-:host([data-theme="ha"]){
-  --g-bg:var(--ha-card-background,var(--card-background-color,#fff));
-  --g-deep:color-mix(in srgb,var(--primary-text-color,#000) 7%,var(--g-bg));
-  --g-panel:color-mix(in srgb,var(--primary-text-color,#000) 4%,var(--g-bg));
-  --g-acc:var(--primary-color,#03a9f4);--g-acc2:var(--primary-color,#03a9f4);--g-edge:var(--primary-color,#03a9f4);
-  --g-text:var(--primary-text-color,#212121);--g-muted:var(--secondary-text-color,#727272);
-  --ok:var(--success-color,#43a047);--warn:var(--warning-color,#ffa600);--err:var(--error-color,#db4437);--info:var(--info-color,#039be5);
-}
-`;
+// mêmes couleurs et mêmes classes de thème que les autres cartes (Imprimantes, Météo, Linky…)
 const THEMES = [
   ["v2", "Style MyElectricalData (bleu nuit)"],
   ["auto", "Style MyElectricalData, clair ou sombre selon Home Assistant"],
   ["ha", "Thème Home Assistant (clair ou sombre)"],
 ];
-const applyTheme = (el, theme, hass) => {
-  const t = theme || "v2", light = hass?.themes?.darkMode === false;
-  el.setAttribute("data-theme", t === "ha" ? "ha" : t === "auto" && light ? "light" : "v2");
+const themeClass = (theme, hass) => {
+  const light = hass?.themes?.darkMode === false;
+  if (theme === "ha") return `th-ha${light ? " light" : ""}`;
+  if (theme === "auto") return `th-v2${light ? " light" : ""}`;
+  return "th-v2";
 };
 
-const CSS = THEME_CSS + `
-:host{display:block;font-family:var(--g-font);font-size:16px;}
-*{box-sizing:border-box;}
-ha-card{
-  display:block;position:relative;container-type:inline-size;overflow:hidden;background:var(--g-bg);color:var(--g-text);
-  border-radius:16px;border:1px solid color-mix(in srgb,var(--g-edge) 22%,transparent);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 8px 28px rgba(0,0,0,.45);padding:16px;
+const STYLE = `<style>
+:host {
+  --med-bg: #1a2434; --med-surface: #212d40; --med-line: #2f3d55;
+  --med-text: #e7edf5; --med-muted: #8fa0b8;
+  --med-green: #96d21f; --med-blue: #1d93e3; --t-red: #ee4a4a; --med-down: #5fcf8a; --pc-warn: #f0a33a; --pc-violet: #a06cff;
 }
-ha-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,transparent,var(--g-acc),transparent);opacity:.8;}
-:host([data-theme="ha"]) ha-card{box-shadow:var(--ha-card-box-shadow,none);border-color:var(--ha-card-border-color,var(--divider-color,#e0e0e0));}
-.sec{font-size:.78rem;font-weight:600;letter-spacing:2px;text-transform:uppercase;
-  color:color-mix(in srgb,var(--g-acc) 85%,transparent);margin-bottom:12px;padding-bottom:6px;
-  border-bottom:1px solid color-mix(in srgb,var(--g-edge) 25%,transparent);display:flex;gap:8px;align-items:center;}
-.sec .demo{margin-left:auto;color:var(--g-muted);letter-spacing:1px;}
-.head{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
-.avatar{width:48px;height:48px;border-radius:50%;flex:none;overflow:hidden;display:flex;align-items:center;justify-content:center;
-  background:var(--g-panel);border:2px solid color-mix(in srgb,var(--g-edge) 45%,transparent);
-  font-size:1.3rem;font-weight:700;color:var(--g-acc2);transition:border-color .4s,box-shadow .4s;}
-.avatar img{width:100%;height:100%;object-fit:cover;}
-.avatar.home{border-color:var(--ok);box-shadow:0 0 12px color-mix(in srgb,var(--ok) 35%,transparent);}
-.avatar.away{border-color:var(--err);box-shadow:0 0 12px color-mix(in srgb,var(--err) 25%,transparent);}
-.who{flex:1;min-width:0;}
-.name{font-size:1.05rem;font-weight:700;letter-spacing:.5px;color:var(--g-text);}
-.state{font-size:.85rem;font-weight:600;margin-top:2px;display:flex;align-items:center;gap:4px;}
-.state ha-icon{--mdc-icon-size:16px;}
-.loc{font-size:.75rem;color:var(--g-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.side{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none;}
-.batmini{display:flex;align-items:center;gap:3px;font-weight:700;font-size:.9rem;cursor:pointer;}
-.batmini ha-icon{--mdc-icon-size:20px;}
-.chips{display:flex;gap:4px;}
-.chip{display:flex;align-items:center;padding:2px 6px;border-radius:6px;border:1px solid color-mix(in srgb,var(--c,var(--g-muted)) 40%,transparent);color:var(--c,var(--g-muted));}
-.chip ha-icon{--mdc-icon-size:14px;}
-.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
-.tab{flex:1;min-width:90px;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 8px;border-radius:8px;cursor:pointer;user-select:none;
-  font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--g-muted);
-  background:var(--g-panel);border:1px solid color-mix(in srgb,var(--g-edge) 22%,transparent);}
-.tab ha-icon{--mdc-icon-size:15px;flex:none;}
-.tab span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-@container (max-width:480px){.tabs.n4 .tab{min-width:0;flex:0 0 auto;padding:6px 12px}.tabs.n4 .tab.on{flex:1}.tabs.n4 .tab:not(.on) span{display:none}}
-.tab.on{color:var(--g-acc2);border-color:color-mix(in srgb,var(--g-acc) 60%,transparent);background:color-mix(in srgb,var(--g-acc) 14%,var(--g-panel));}
-.panel{display:none;}
-.panel.on{display:block;}
-.bat{margin-bottom:10px;cursor:pointer;}
-.bat-top{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:.72rem;letter-spacing:1.2px;text-transform:uppercase;color:var(--g-muted);}
-.bat-top .v{margin-left:auto;font-size:.95rem;font-weight:700;letter-spacing:0;text-transform:none;}
-.bat-top .chg{color:var(--warn);text-transform:none;letter-spacing:0;font-weight:600;display:flex;align-items:center;gap:2px;}
-.bat-top .chg ha-icon{--mdc-icon-size:14px;}
-.track{height:8px;border-radius:4px;background:color-mix(in srgb,var(--g-muted) 18%,transparent);overflow:hidden;}
-.fill{height:100%;border-radius:4px;transition:width .6s,background .5s;}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;}
-.tile{padding:9px 10px;border-radius:10px;background:var(--g-panel);min-width:0;
-  border:1px solid color-mix(in srgb,var(--c,var(--g-edge)) 30%,transparent);}
-.tile[data-entity],.tile[data-goto]{cursor:pointer;}
-.tile[data-entity]:hover{border-color:color-mix(in srgb,var(--c,var(--g-acc)) 70%,transparent);}
-.tile.wide{grid-column:1/-1;}
-.lbl{font-size:.66rem;letter-spacing:1.2px;text-transform:uppercase;color:var(--g-muted);margin-bottom:4px;}
-.row{display:flex;align-items:center;gap:6px;min-width:0;}
-.row ha-icon{--mdc-icon-size:18px;color:var(--c,var(--g-acc2));flex:none;}
-.val{font-size:.88rem;font-weight:600;color:var(--c,var(--g-text));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tile.wide .val{white-space:normal;}
-.val.mono{font-family:var(--g-font-m);font-size:.82rem;}
-.act{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:10px 12px;margin-bottom:8px;border-radius:10px;background:var(--g-panel);
-  border:1px solid color-mix(in srgb,var(--g-edge) 22%,transparent);}
-.act > ha-icon{--mdc-icon-size:28px;color:var(--g-acc2);}
-.act .r{margin-left:auto;display:flex;gap:16px;align-items:center;}
-.act .big{font-size:.95rem;font-weight:700;}
-.hr{display:flex;align-items:center;gap:4px;font-weight:700;}
-.hr ha-icon{--mdc-icon-size:18px;color:var(--err);animation:beat 1.15s ease-in-out infinite;}
-@keyframes beat{0%,100%{transform:scale(1)}20%{transform:scale(1.22)}40%{transform:scale(1)}}
-.find{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:10px;padding:8px 12px;border-radius:9px;cursor:pointer;user-select:none;
-  font-size:.78rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--err);
-  background:color-mix(in srgb,var(--err) 10%,transparent);border:1px solid color-mix(in srgb,var(--err) 40%,transparent);font-family:inherit;}
-.find:hover,.find.busy{background:color-mix(in srgb,var(--err) 22%,transparent);}
-.find ha-icon{--mdc-icon-size:18px;}
-.notifs{display:flex;flex-direction:column;gap:6px;}
-.nt{display:flex;gap:10px;padding:8px 10px;border-radius:10px;background:var(--g-panel);border:1px solid color-mix(in srgb,var(--g-edge) 22%,transparent);min-width:0;}
-.nt > ha-icon{--mdc-icon-size:20px;color:var(--g-acc2);flex:none;margin-top:2px;}
-.nt .b{min-width:0;flex:1;}
-.nt .h{display:flex;gap:6px;align-items:baseline;font-size:.68rem;letter-spacing:1px;text-transform:uppercase;color:var(--g-muted);}
-.nt .h span:last-child{margin-left:auto;text-transform:none;letter-spacing:0;white-space:nowrap;}
-.nt .t{font-size:.88rem;font-weight:700;color:var(--g-text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.nt .m{font-size:.82rem;color:var(--g-muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;}
-.sms .val{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.sms .from{font-size:.72rem;color:var(--g-muted);margin-top:2px;}
-.empty{text-align:center;padding:14px 8px;font-size:.85rem;color:var(--g-muted);}
-@media (max-width:420px){ha-card{padding:13px}.tab{min-width:70px}}
-`;
+ha-card { display: block; background: var(--med-bg); color: var(--med-text); border: 1px solid var(--med-line); border-radius: 18px; overflow: hidden;
+  padding-bottom: 12px; font-variant-numeric: tabular-nums; container-type: inline-size; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px 8px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tk-av { width: 40px; height: 40px; border-radius: 50%; flex: none; overflow: hidden; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: var(--med-surface); border: 2px solid var(--med-line); font-size: 1.1rem; font-weight: 700; color: var(--med-accent, var(--med-blue)); }
+.tk-av img { width: 100%; height: 100%; object-fit: cover; }
+.tk-av.home { border-color: var(--med-down); } .tk-av.away { border-color: var(--pc-warn); }
+.brand > div { min-width: 0; }
+.title { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.title small { font-size: .7rem; font-weight: 600; color: var(--med-muted); border: 1px solid var(--med-line); border-radius: 999px; padding: 1px 8px; }
+.sub { font-size: .78rem; color: var(--med-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub b { font-weight: 600; } .sub b.home { color: var(--med-down); } .sub b.away { color: var(--pc-warn); }
+.tk-side { display: flex; align-items: center; gap: 6px; flex: none; }
+.pc-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 12px 0; }
+.pc-tab { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--med-line); background: var(--med-surface); font-size: .82rem; font-weight: 600; }
+.pc-tab ha-icon { --mdc-icon-size: 16px; color: var(--med-muted); }
+.pc-tab small { color: var(--med-muted); font-weight: 500; }
+.pc-tab.on { border-color: var(--med-accent, var(--med-blue)); box-shadow: inset 0 -2px 0 var(--med-accent, var(--med-blue)); }
+.pc-tab.on ha-icon { color: var(--med-accent, var(--med-blue)); }
+.pc-tab:focus-visible { outline: 2px solid var(--med-accent, var(--med-blue)); }
+.panel { display: none; } .panel.on { display: block; }
+.pc-sec { margin: 12px 12px 0; }
+.pc-h { display: flex; align-items: center; gap: 6px; font-size: .86rem; font-weight: 600; margin: 0 2px 8px; }
+.pc-h ha-icon { --mdc-icon-size: 18px; color: var(--med-accent, var(--med-blue)); }
+.pc-state { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--med-line); background: var(--med-surface); }
+.pc-state[data-entity] { cursor: pointer; }
+.pc-state > ha-icon { --mdc-icon-size: 26px; color: var(--med-accent, var(--med-blue)); flex: none; }
+.pc-state > div { display: grid; min-width: 0; flex: 1; }
+.pc-state b { font-size: .95rem; }
+.pc-state span { font-size: .76rem; color: var(--med-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-state .tk-r { display: flex; gap: 16px; align-items: center; flex: none; text-align: right; }
+.pc-state .tk-r div { display: grid; }
+.pc-state.ok { border-color: color-mix(in srgb, var(--med-down) 55%, transparent); } .pc-state.ok > ha-icon, .pc-state.ok b.c { color: var(--med-down); }
+.pc-state.warn { border-color: var(--pc-warn); } .pc-state.warn > ha-icon, .pc-state.warn b.c { color: var(--pc-warn); }
+.pc-state.bad { border-color: var(--t-red); background: color-mix(in srgb, var(--t-red) 12%, var(--med-surface)); } .pc-state.bad > ha-icon, .pc-state.bad b.c { color: var(--t-red); }
+.tk-hr { color: var(--t-red); animation: tk-beat 1.15s ease-in-out infinite; }
+@keyframes tk-beat { 0%, 100% { transform: scale(1); } 20% { transform: scale(1.2); } 40% { transform: scale(1); } }
+.pc-bar { flex: 1; height: 9px; border-radius: 6px; background: var(--med-line); overflow: hidden; margin-top: 6px; }
+.pc-bar i { display: block; height: 100%; border-radius: 6px; background: var(--med-down); }
+.pc-bar.warn i { background: var(--pc-warn); } .pc-bar.bad i { background: var(--t-red); }
+.pc-ts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.pc-t { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--med-line); background: var(--med-surface); min-width: 0; }
+.pc-t[data-entity], .pc-t[data-goto] { cursor: pointer; }
+.pc-t[data-entity]:hover, .pc-t[data-goto]:hover { border-color: var(--med-accent, var(--med-blue)); }
+.pc-t.wide { grid-column: 1 / -1; }
+.pc-tt { display: flex; align-items: center; gap: 6px; font-size: .82rem; color: var(--med-muted); }
+.pc-tt ha-icon { --mdc-icon-size: 18px; color: var(--c, var(--med-muted)); flex: none; }
+.pc-t b { display: block; margin-top: 4px; font-size: 1rem; color: var(--c, var(--med-text)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-t.wide b, .pc-t.multi b { white-space: normal; }
+.pc-t.multi b { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.pc-tn { font-size: .72rem; color: var(--med-muted); margin-top: 2px; }
+.pc-xs { display: flex; flex-wrap: wrap; gap: 6px; }
+.pc-x { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--med-line); font-size: .74rem; color: var(--c, var(--med-muted)); }
+.pc-x[data-entity] { cursor: pointer; }
+.pc-x ha-icon { --mdc-icon-size: 15px; } .pc-x b { color: var(--c, var(--med-text)); }
+.tk-nl { display: grid; gap: 6px; }
+.tk-n { display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--med-line); background: var(--med-surface); min-width: 0; }
+.tk-n > ha-icon { --mdc-icon-size: 20px; color: var(--med-accent, var(--med-blue)); flex: none; margin-top: 1px; }
+.tk-n > div { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.tk-nh { display: flex; gap: 8px; font-size: .74rem; color: var(--med-muted); } .tk-nh span:last-child { margin-left: auto; white-space: nowrap; }
+.tk-n b { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-n p { margin: 0; font-size: .8rem; color: var(--med-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.pc-btn { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 6px 10px; width: 100%;
+  border-radius: 12px; border: 1px solid var(--med-line); background: var(--med-surface); font-size: .8rem; font-weight: 600; text-align: center; }
+.pc-btn ha-icon { --mdc-icon-size: 18px; flex: none; }
+.pc-btn:hover { border-color: var(--med-accent, var(--med-blue)); } .pc-btn:focus-visible { outline: 2px solid var(--med-accent, var(--med-blue)); }
+.pc-btn.bad { color: var(--t-red); border-color: color-mix(in srgb, var(--t-red) 40%, transparent); }
+.pc-btn.armed { color: var(--pc-warn); border-color: var(--pc-warn); background: color-mix(in srgb, var(--pc-warn) 18%, transparent); }
+.empty { padding: 18px; display: flex; flex-direction: column; gap: 6px; font-size: .9rem; } .empty span { color: var(--med-muted); }
+ha-card.th-ha {
+  /* accent (icônes, onglets, sélections, contours) : couleur principale du thème ; les couleurs porteuses de sens restent */
+  --med-accent: var(--primary-color, #1d93e3);
+  --med-bg: var(--ha-card-background, var(--card-background-color, #fff));
+  --med-surface: color-mix(in srgb, var(--primary-text-color, #000) 5%, transparent);
+  --med-line: var(--divider-color, rgba(127, 127, 127, .25));
+  --med-text: var(--primary-text-color, #1f2937); --med-muted: var(--secondary-text-color, #6b7280);
+  border-radius: var(--ha-card-border-radius, 12px);
+  border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color, #e0e0e0));
+}
+ha-card.th-ha.light, ha-card.th-v2.light { --med-down: #1d8a4b; --med-green: #4c8a0b; --pc-warn: #b0640a; --t-red: #c62f2f; --pc-violet: #7a45d6; }
+ha-card.th-v2.light { --med-bg: #ffffff; --med-surface: #f2f5f9; --med-line: #dbe2ec; --med-text: #1a2434; --med-muted: #5b6b82; --med-blue: #1673b8;
+  box-shadow: 0 1px 3px rgba(26, 36, 52, .08); }
+@media (prefers-reduced-motion: reduce) { .tk-hr { animation: none; } }
+@container (max-width: 360px) { .pc-state .tk-r { gap: 10px; } }
+</style>`;
 
 /* --------------------------------------------------------------- libellés */
 const ACTIVITY = {
@@ -150,7 +136,7 @@ const ACTIVITY = {
   unknown: ["mdi:help-circle-outline", "Inconnue"],
 };
 const RINGER = {
-  normal: ["mdi:bell-ring", "Normale", "--ok"], vibrate: ["mdi:vibrate", "Vibreur", "--warn"], silent: ["mdi:bell-off", "Silencieux", "--err"],
+  normal: ["mdi:bell-ring", "Normale", "--med-down"], vibrate: ["mdi:vibrate", "Vibreur", "--pc-warn"], silent: ["mdi:bell-off", "Silencieux", "--t-red"],
 };
 const CHARGER = {
   ac: "Secteur", usb: "USB", wireless: "Sans fil", dock: "Dock", "ac charger": "Secteur", "usb charger": "USB", "wireless charger": "Sans fil",
@@ -241,7 +227,8 @@ const DEMO = (() => {
 })();
 
 /* ------------------------------------------------------------- calculs */
-const batColor = (p) => p >= 80 ? "--ok" : p >= 50 ? "--ok" : p >= 20 ? "--warn" : "--err";
+const batLevel = (p) => !Number.isFinite(p) ? "" : p >= 50 ? "ok" : p >= 20 ? "warn" : "bad";
+const LVL = { ok: "--med-down", warn: "--pc-warn", bad: "--t-red", "": "--med-muted" };
 const batIcon = (p, chg) => {
   if (!Number.isFinite(p)) return "mdi:battery-unknown";
   const r = Math.max(0, Math.min(100, Math.round(p / 10) * 10));
@@ -250,13 +237,13 @@ const batIcon = (p, chg) => {
 };
 const dataColor = (raw) => {
   const r = String(raw || "").toUpperCase();
-  if (/NR|5G/.test(r)) return "--violet";
-  if (/LTE|4G/.test(r)) return "--info";
-  if (/HSPA|H\+|3G|UMTS/.test(r)) return "--ok";
-  if (/EDGE|2G|GPRS|GSM/.test(r)) return "--warn";
+  if (/NR|5G/.test(r)) return "--pc-violet";
+  if (/LTE|4G/.test(r)) return "--med-blue";
+  if (/HSPA|H\+|3G|UMTS/.test(r)) return "--med-down";
+  if (/EDGE|2G|GPRS|GSM/.test(r)) return "--pc-warn";
   return null;
 };
-const hrColor = (b) => b < 60 ? "--info" : b <= 100 ? "--ok" : b <= 140 ? "--warn" : "--err";
+const hrColor = (b) => b < 60 ? "--med-blue" : b <= 100 ? "--med-down" : b <= 140 ? "--pc-warn" : "--t-red";
 const haversine = (a, b, c, d) => {
   const R = 6371, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(x));
@@ -297,7 +284,7 @@ class TrackerCard extends HTMLElement {
 
   setConfig(config) {
     const c = config || {};
-    this._config = { ...c, theme: c.theme || "v2", title: c.title ?? "Présence", phone: { ...(c.phone || {}) } };
+    this._config = { ...c, theme: c.theme || "v2", title: c.title || "", phone: { ...(c.phone || {}) } };
     this._ents = null; this._fp = null; this._tab = 0;
     if (this._hass) this._render(true);
   }
@@ -305,10 +292,9 @@ class TrackerCard extends HTMLElement {
   set hass(h) {
     this._hass = h;
     if (!this._config) return;
-    applyTheme(this, this._config.theme, h);
     const ents = this._entities();
-    const fp = this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents)]
-      .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") + (e === ents.notif_count ? JSON.stringify(s.attributes) : "") : "x"; }).join(";");
+    const fp = `${this._config.theme}|${h.themes?.darkMode}|` + (this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents)]
+      .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") + (e === ents.notif_count ? JSON.stringify(s.attributes) : "") : "x"; }).join(";"));
     if (fp === this._fp) return;
     this._fp = fp;
     this._render(!this.shadowRoot.querySelector("ha-card"));
@@ -391,7 +377,7 @@ class TrackerCard extends HTMLElement {
     const charging = this._v("charging") === "on" || bstate === "charging" || bstate === "full";
     const ctype = String(this._v("charger_type") || "").toLowerCase();
     const charger = CHARGER[ctype] || (ok(ctype) && ctype !== "none" ? ctype : "");
-    const bc = batColor(bat);
+    const bl = batLevel(bat);
 
     // réseau
     const ssidRaw = this._v("wifi_ssid");
@@ -399,16 +385,19 @@ class TrackerCard extends HTMLElement {
     const wifiOn = this._v("wifi_state") === "on" || (this._v("wifi_state") == null && !!ssid);
     const net = String(this._v("network_type") || "").toLowerCase().replace(/[-\s]/g, "");
     const dn = this._v("data_network");
-    const hasHot = !!(demo || this._entities().hotspot), hotOn = this._v("hotspot") === "on";
+    const hotOn = this._v("hotspot") === "on";
 
     const E = this._entities();
     // clé simple ou « a|b » : la première entité disponible
     const pick = (k) => k.split("|").find((x) => demo ? DEMO[x] != null : !!E[x]);
     const has = (k) => !!pick(k);
     const ent = (k) => { const x = pick(k); return demo || !x ? "" : ` data-entity="${esc(E[x])}"`; };
-    const tile = (k, label, icon, val, color, extra = "") => has(k)
-      ? `<div class="tile${extra.replace(" goto", "")}"${extra.includes("goto") ? ` data-goto="notifs"` : ent(k)} style="${color ? `--c:var(${color})` : ""}"><div class="lbl">${esc(label)}</div><div class="row"><ha-icon icon="${esc(icon)}"></ha-icon><span class="val${extra.includes("mono") ? " mono" : ""}">${esc(val ?? "—")}</span></div></div>`
+    const col = (c) => c ? ` style="--c:var(${c})"` : "";
+    /** Tuile : icône et libellé, valeur dessous ; « goto » ouvre l'onglet Notifications. */
+    const tile = (k, label, icon, val, c, opts = "") => has(k)
+      ? `<div class="pc-t${opts.includes("wide") ? " wide" : ""}"${opts.includes("goto") ? ` data-goto="notifs"` : ent(k)}${col(c)}><div class="pc-tt"><ha-icon icon="${esc(icon)}"></ha-icon>${esc(label)}</div><b>${esc(val ?? "—")}</b></div>`
       : "";
+    const sec = (icon, title, body) => body.trim() ? `<div class="pc-sec">${title ? `<div class="pc-h"><ha-icon icon="${icon}"></ha-icon>${esc(title)}</div>` : ""}${body}</div>` : "";
 
     // onglet Téléphone
     const act = String(this._v("activity") || "").toLowerCase().trim();
@@ -420,110 +409,115 @@ class TrackerCard extends HTMLElement {
     const nc = parseInt(this._v("notif_count"), 10);
     const notifs = cfg.notifications === false ? [] : demo ? DEMO.notifs : readNotifs(this._st("notif_count"));
     const sms = notifs.find((n) => SMS_APPS.includes(n.pkg));
-    const ncCol = !Number.isFinite(nc) ? null : nc > 10 ? "--err" : nc > 0 ? "--warn" : "--ok";
+    const ncCol = !Number.isFinite(nc) ? null : nc > 10 ? "--t-red" : nc > 0 ? "--pc-warn" : "--med-down";
     const alarmIso = this._v("next_alarm");
     const alarmMs = alarmIso ? new Date(alarmIso) - Date.now() : NaN;
     const alarm = alarmIso ? fmtDate(alarmIso, true) || alarmIso : null;
 
-    const p0 = `
-      ${has("battery") ? `<div class="bat"${ent("battery")}>
-        <div class="bat-top">Batterie${charging ? `<span class="chg"><ha-icon icon="mdi:flash"></ha-icon>${esc(charger || "En charge")}</span>` : ""}
-          <span class="v" style="color:var(${bc})">${Number.isFinite(bat) ? Math.round(bat) + " %" : "—"}</span></div>
-        <div class="track"><div class="fill" style="width:${Number.isFinite(bat) ? Math.max(0, Math.min(100, bat)) : 0}%;background:var(${bc})"></div></div>
-      </div>` : ""}
-      ${has("activity") || Number.isFinite(km) || Number.isFinite(hr) ? `<div class="act">
+    const batBlock = has("battery") ? `<div class="pc-state ${bl}"${ent("battery")}>
+        <ha-icon icon="${batIcon(bat, charging)}"></ha-icon>
+        <div><b class="c">${Number.isFinite(bat) ? Math.round(bat) + " %" : "—"}</b>
+          <span>${charging ? `En charge${charger ? ` · ${esc(charger)}` : ""}` : "Sur batterie"}</span>
+          <div class="pc-bar ${bl}"><i style="width:${Number.isFinite(bat) ? Math.max(0, Math.min(100, bat)) : 0}%"></i></div></div>
+      </div>` : "";
+    const actBlock = has("activity") || Number.isFinite(km) || Number.isFinite(hr) ? `<div class="pc-state"${ent("activity")}>
         <ha-icon icon="${esc(aIcon)}"></ha-icon>
-        <div><div class="lbl">Activité</div><div class="big">${esc(has("activity") ? aLbl : "—")}</div></div>
-        <div class="r">
-          ${Number.isFinite(hr) ? `<div class="hr"><ha-icon icon="mdi:heart-pulse"></ha-icon><span style="color:var(${hrColor(hr)})">${hr} bpm</span></div>` : ""}
-          ${Number.isFinite(km) ? `<div><div class="lbl">Distance</div><div class="big" style="color:var(--g-acc2)">${esc(fmtKm(km))}</div></div>` : ""}
-        </div></div>` : ""}
-      <div class="grid">
+        <div><b>${esc(has("activity") ? aLbl : home ? "À la maison" : "—")}</b><span>Activité</span></div>
+        <div class="tk-r">
+          ${Number.isFinite(hr) ? `<div><b style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse" style="--mdc-icon-size:16px"></ha-icon> ${hr}</b><span>bpm</span></div>` : ""}
+          ${Number.isFinite(km) ? `<div><b>${esc(fmtKm(km))}</b><span>de la maison</span></div>` : ""}
+        </div></div>` : "";
+    const smsTile = sms ? `<div class="pc-t wide multi" data-goto="notifs"><div class="pc-tt"><ha-icon icon="mdi:message-text" style="color:var(--med-accent, var(--med-blue))"></ha-icon>Dernier SMS · ${esc(sms.title)} · ${esc(ago(sms.t))}</div><b>${esc(sms.text || sms.title)}</b></div>` : "";
+    const p0 = sec("", "", batBlock)
+      + sec("", "", actBlock)
+      + sec("mdi:cellphone-information", "Téléphone", `<div class="pc-ts">
         ${tile("ringer", "Sonnerie", rIcon, rLbl, rCol)}
-        ${tile("notif_count", "Notifications", "mdi:bell-badge-outline", Number.isFinite(nc) ? String(nc) : "—", ncCol, notifs.length ? " mono goto" : " mono")}
-        ${sms ? `<div class="tile wide sms" data-goto="notifs" style="--c:var(--info)"><div class="lbl">Dernier SMS · ${esc(ago(sms.t))}</div><div class="row"><ha-icon icon="mdi:message-text"></ha-icon><div style="min-width:0"><div class="val">${esc(sms.text || sms.title)}</div><div class="from">${esc(sms.title)}</div></div></div></div>` : ""}
-        ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--err" : alarm ? "--warn" : null, " wide")}
-      </div>
-      ${cfg.find_phone_script ? `<button class="find" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon>Faire sonner le téléphone</button>` : ""}`;
+        ${tile("notif_count", "Notifications", "mdi:bell-badge-outline", Number.isFinite(nc) ? String(nc) : "—", ncCol, notifs.length ? "goto" : "")}
+        ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : alarm ? "--pc-warn" : null, "wide")}
+        ${smsTile}
+      </div>`.replace(/<div class="pc-ts">\s*<\/div>/, ""))
+      + (cfg.find_phone_script ? sec("", "", `<button class="pc-btn bad" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon><span>Faire sonner le téléphone</span></button>`) : "");
 
     // onglet Réseau
     const btOn = this._v("bt_state") === "on", btc = String(this._v("bt_conn") || "").trim();
     const btNone = !btc || /none|null|unknown|disconnected|aucun/i.test(btc) || btc === "0";
     const sim = this._v("sim"), simOk = sim && !/absent|no service|none/i.test(sim);
     const gps = this._v("high_acc") === "on";
-    const p1 = `<div class="grid">
-      ${tile("wifi_ssid|wifi_state", "Wi-Fi", wifiOn ? "mdi:wifi" : "mdi:wifi-off", wifiOn ? ssid || "Activé" : "Désactivé", wifiOn ? "--ok" : null)}
-      ${tile("data_network|network_type", "Réseau mobile", "mdi:signal", dn || (net === "wifi" ? "Wi-Fi" : net === "cellular" ? "Mobile" : net || "—"), dataColor(dn), " mono")}
-      ${tile("bt_state", "Bluetooth", btOn ? "mdi:bluetooth" : "mdi:bluetooth-off", btOn ? (btNone ? "Activé" : btc) : "Désactivé", btOn ? (btNone ? "--info" : "--ok") : null)}
-      ${tile("sim", "Carte SIM", "mdi:sim", sim || "—", sim ? (simOk ? "--ok" : "--err") : null)}
-      ${tile("high_acc", "GPS", gps ? "mdi:crosshairs-gps" : "mdi:crosshairs", gps ? "Haute précision" : "Standard", gps ? "--violet" : null)}
-      ${tile("hotspot", "Partage de connexion", hotOn ? "mdi:access-point" : "mdi:access-point-off", hotOn ? "Activé" : "Désactivé", hotOn ? "--warn" : null)}
-      ${rue ? `<div class="tile"${ent(E.rue ? "rue" : "geocoded")}><div class="lbl">Rue</div><div class="row"><ha-icon icon="mdi:road-variant"></ha-icon><span class="val">${esc(rue)}</span></div></div>` : ""}
-      ${ville ? `<div class="tile"${ent(E.ville ? "ville" : "geocoded")}><div class="lbl">Ville</div><div class="row"><ha-icon icon="mdi:city-variant-outline"></ha-icon><span class="val">${esc(ville)}</span></div></div>` : ""}
-    </div>`;
+    const netTiles = [
+      tile("wifi_ssid|wifi_state", "Wi-Fi", wifiOn ? "mdi:wifi" : "mdi:wifi-off", wifiOn ? ssid || "Activé" : "Désactivé", wifiOn ? "--med-down" : null),
+      tile("data_network|network_type", "Réseau mobile", "mdi:signal", dn || (net === "wifi" ? "Wi-Fi" : net === "cellular" ? "Mobile" : net || "—"), dataColor(dn)),
+      tile("bt_state", "Bluetooth", btOn ? "mdi:bluetooth" : "mdi:bluetooth-off", btOn ? (btNone ? "Activé" : btc) : "Désactivé", btOn ? (btNone ? "--med-blue" : "--med-down") : null),
+      tile("sim", "Carte SIM", "mdi:sim", sim || "—", sim ? (simOk ? "--med-down" : "--t-red") : null),
+      tile("high_acc", "GPS", gps ? "mdi:crosshairs-gps" : "mdi:crosshairs", gps ? "Haute précision" : "Standard", gps ? "--pc-violet" : null),
+      tile("hotspot", "Partage de connexion", hotOn ? "mdi:access-point" : "mdi:access-point-off", hotOn ? "Activé" : "Désactivé", hotOn ? "--pc-warn" : null),
+    ].join("");
+    const placeTiles = [
+      rue ? `<div class="pc-t"${ent(E.rue ? "rue" : "geocoded")}><div class="pc-tt"><ha-icon icon="mdi:road-variant"></ha-icon>Rue</div><b>${esc(rue)}</b></div>` : "",
+      ville ? `<div class="pc-t"${ent(E.ville ? "ville" : "geocoded")}><div class="pc-tt"><ha-icon icon="mdi:city-variant-outline"></ha-icon>Ville</div><b>${esc(ville)}</b></div>` : "",
+    ].join("");
+    const p1 = sec("mdi:access-point-network", "Connexions", netTiles ? `<div class="pc-ts">${netTiles}</div>` : "")
+      + sec("mdi:map-marker-outline", "Position", placeTiles ? `<div class="pc-ts">${placeTiles}</div>` : "");
 
     // onglet Infos
     const rb = this._v("last_reboot");
-    const p2 = `<div class="grid">
-      ${tile("public_ip", "IP publique", "mdi:web", this._v("public_ip"), null, " wide mono")}
-      ${tile("last_reboot", "Dernier redémarrage", "mdi:restart", rb ? fmtDate(rb, true) || rb : null, null, " wide")}
-      ${tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, " wide")}
-    </div>`;
+    const infoTiles = [
+      tile("public_ip", "IP publique", "mdi:web", this._v("public_ip"), null, "wide"),
+      tile("last_reboot", "Dernier redémarrage", "mdi:restart", rb ? fmtDate(rb, true) || rb : null, null, "wide"),
+      tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
+    ].join("");
+    const p2 = sec("mdi:information-outline", "Appareil", infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
 
-    const p3 = notifs.length ? `<div class="notifs">${notifs.slice(0, cfg.notifications_max || 20).map((n) => { const [app, icon] = appInfo(n.pkg); return `
-      <div class="nt"><ha-icon icon="${esc(icon)}"></ha-icon><div class="b"><div class="h"><span>${esc(app)}</span><span>${esc(ago(n.t))}</span></div>
-        ${n.title ? `<div class="t">${esc(n.title)}</div>` : ""}${n.text ? `<div class="m">${esc(n.text)}</div>` : ""}</div></div>`; }).join("")}</div>` : "";
+    // onglet Notifications
+    const p3 = notifs.length ? sec("mdi:bell-outline", `${notifs.length} notification${notifs.length > 1 ? "s" : ""}`, `<div class="tk-nl">${notifs.slice(0, cfg.notifications_max || 20).map((n) => { const [app, icon] = appInfo(n.pkg); return `
+      <div class="tk-n"><ha-icon icon="${esc(icon)}"></ha-icon><div><div class="tk-nh"><span>${esc(app)}</span><span>${esc(ago(n.t))}</span></div>
+        ${n.title ? `<b>${esc(n.title)}</b>` : ""}${n.text ? `<p>${esc(n.text)}</p>` : ""}</div></div>`; }).join("")}</div>`) : "";
+
     const panels = [["mdi:cellphone", "Téléphone", p0], ["mdi:wifi", "Réseau", p1], ["mdi:bell-outline", "Notifications", p3, "notifs"], ["mdi:information-outline", "Infos", p2]]
-      .filter(([, , p]) => /class="(tile|bat|act|find|notifs)/.test(p));
+      .filter(([, , p]) => p.trim());
     this._panelIds = panels.map((x) => x[3] || "");
     if (this._tab >= panels.length) this._tab = 0;
 
-    const netChip = net === "wifi" ? ["mdi:wifi", "--ok"] : net === "cellular" ? ["mdi:signal-cellular-3", "--info"] : net.includes("vpn") ? ["mdi:vpn", "--violet"] : ok(net) ? ["mdi:network-strength-off", null] : null;
+    // pastilles de l'en-tête : batterie, Wi-Fi ou réseau, partage de connexion
+    const netChip = net === "wifi" ? ["mdi:wifi", "--med-down", "Wi-Fi"] : net === "cellular" ? ["mdi:signal-cellular-3", "--med-blue", dn || "Mobile"] : net.includes("vpn") ? ["mdi:vpn", "--pc-violet", "VPN"] : null;
     const chips = [
-      has("wifi_state") || has("wifi_ssid") ? [wifiOn ? "mdi:wifi" : "mdi:wifi-off", wifiOn ? "--ok" : null, "Wi-Fi"] : null,
-      hasHot && hotOn ? ["mdi:access-point", "--warn", "Partage de connexion"] : null,
-      netChip && !(net === "wifi" && (has("wifi_state") || has("wifi_ssid"))) ? [...netChip, "Réseau"] : null,
-    ].filter(Boolean);
+      has("battery") ? `<span class="pc-x"${ent("battery")}${col(LVL[bl])}><ha-icon icon="${batIcon(bat, charging)}"></ha-icon><b>${Number.isFinite(bat) ? Math.round(bat) + " %" : "—"}</b></span>` : "",
+      has("wifi_state") || has("wifi_ssid") ? `<span class="pc-x" title="Wi-Fi"${col(wifiOn ? "--med-down" : null)}><ha-icon icon="${wifiOn ? "mdi:wifi" : "mdi:wifi-off"}"></ha-icon></span>`
+        : netChip ? `<span class="pc-x" title="${esc(netChip[2])}"${col(netChip[1])}><ha-icon icon="${netChip[0]}"></ha-icon></span>` : "",
+      hotOn ? `<span class="pc-x" title="Partage de connexion"${col("--pc-warn")}><ha-icon icon="mdi:access-point"></ha-icon></span>` : "",
+    ].join("");
 
+    const sub = `<b class="${home ? "home" : pstate ? "away" : ""}">${esc(zone || (cfg.person ? "Inconnu" : "Choisissez une personne"))}</b>${where ? ` · ${esc(where)}` : ""}`;
     const html = `
-      ${cfg.title || demo ? `<div class="sec">${esc(String(cfg.title || "").toUpperCase())}${demo ? `<span class="demo">DÉMO</span>` : ""}</div>` : ""}
-      <div class="head">
-        <div class="avatar ${pstate ? (home ? "home" : "away") : ""}" id="avatar"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}>
-          ${pic ? `<img src="${esc(pic)}" alt="">` : esc((name || "?").trim().charAt(0).toUpperCase())}
-        </div>
-        <div class="who">
-          <div class="name">${esc(name)}</div>
-          <div class="state" style="color:var(${home ? "--ok" : pstate ? "--err" : "--g-muted"})"><ha-icon icon="${home ? "mdi:home" : "mdi:map-marker"}"></ha-icon>${esc(zone || (cfg.person ? "Inconnu" : "Choisissez une personne"))}</div>
-          ${where ? `<div class="loc">${esc(where)}</div>` : ""}
-        </div>
-        <div class="side">
-          ${has("battery") ? `<div class="batmini"${ent("battery")} style="color:var(${bc})"><ha-icon icon="${batIcon(bat, charging)}"></ha-icon>${Number.isFinite(bat) ? Math.round(bat) + " %" : "—"}</div>` : ""}
-          ${chips.length ? `<div class="chips">${chips.map(([i, c, t]) => `<span class="chip" title="${esc(t)}" style="${c ? `--c:var(${c})` : ""}"><ha-icon icon="${i}"></ha-icon></span>`).join("")}</div>` : ""}
-        </div>
-      </div>
-      ${panels.length > 1 ? `<div class="tabs${panels.length > 3 ? " n4" : ""}">${panels.map(([i, l], n) => `<div class="tab${n === this._tab ? " on" : ""}" data-tab="${n}" title="${l}"><ha-icon icon="${i}"></ha-icon><span>${l}</span></div>`).join("")}</div>` : ""}
+      <header><div class="brand">
+        <div class="tk-av ${pstate ? (home ? "home" : "away") : ""}"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}>
+          ${pic ? `<img src="${esc(pic)}" alt="">` : esc((name || "?").trim().charAt(0).toUpperCase())}</div>
+        <div><div class="title">${esc(cfg.title || name)}${demo ? "<small>Démo</small>" : ""}</div><div class="sub">${cfg.title ? `${esc(name)} · ` : ""}${sub}</div></div></div>
+        ${chips ? `<div class="tk-side">${chips}</div>` : ""}
+      </header>
+      ${panels.length > 1 ? `<div class="pc-tabs">${panels.map(([i, l], n) => `<button class="pc-tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}${panels[n][3] === "notifs" ? ` <small>${notifs.length}</small>` : ""}</button>`).join("")}</div>` : ""}
       ${panels.map(([, , p], n) => `<div class="panel${n === this._tab ? " on" : ""}">${p}</div>`).join("")}
-      ${!panels.length && !demo ? `<div class="empty">${cfg.person ? "Aucun capteur de téléphone trouvé pour cette personne : indiquez-les dans l'éditeur (section Téléphone)." : "Choisissez une personne dans l'éditeur de la carte."}</div>` : ""}`;
+      ${!panels.length && !demo ? `<div class="empty">${cfg.person ? "<b>Aucun capteur de téléphone trouvé</b><span>Indiquez-les dans l'éditeur de la carte (section Téléphone).</span>" : "<b>Choisissez une personne</b><span>dans l'éditeur de la carte.</span>"}</div>` : ""}`;
 
     if (full || !this._card) {
-      this.shadowRoot.innerHTML = `<style>${CSS}</style><ha-card></ha-card>`;
+      this.shadowRoot.innerHTML = `${STYLE}<ha-card></ha-card>`;
       this._card = this.shadowRoot.querySelector("ha-card");
       this._card.addEventListener("click", (ev) => this._click(ev));
     }
+    this._card.className = themeClass(cfg.theme, h);
     this._card.innerHTML = html;
   }
 
   _click(ev) {
-    const tab = ev.target.closest(".tab");
+    const tab = ev.target.closest(".pc-tab");
     if (tab) {
       this._tab = +tab.dataset.tab;
-      this._card.querySelectorAll(".tab").forEach((t) => t.classList.toggle("on", t === tab));
+      this._card.querySelectorAll(".pc-tab").forEach((t) => t.classList.toggle("on", t === tab));
       this._card.querySelectorAll(".panel").forEach((p, n) => p.classList.toggle("on", n === this._tab));
       return;
     }
     if (ev.target.closest("#find")) return this._find(ev.target.closest("#find"));
     const go = ev.target.closest("[data-goto]");
-    if (go) { const n = (this._panelIds || []).indexOf(go.dataset.goto); const t = n >= 0 && this._card.querySelector(`.tab[data-tab="${n}"]`); if (t) t.click(); return; }
+    if (go) { const n = (this._panelIds || []).indexOf(go.dataset.goto); const t = n >= 0 && this._card.querySelector(`.pc-tab[data-tab="${n}"]`); if (t) t.click(); return; }
     const el = ev.target.closest("[data-entity]");
     if (el) this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: el.dataset.entity }, bubbles: true, composed: true }));
   }
@@ -531,7 +525,7 @@ class TrackerCard extends HTMLElement {
   async _find(btn) {
     const id = this._config.find_phone_script;
     if (!id || this._config.demo) return;
-    btn.classList.add("busy");
+    btn.classList.add("armed");
     try {
       const [dom] = id.split(".");
       if (dom === "button" || dom === "input_button") await this._hass.callService(dom, "press", { entity_id: id });
@@ -539,84 +533,82 @@ class TrackerCard extends HTMLElement {
     } catch (e) {
       console.error("[tracker-card] impossible de lancer", id, e);
     }
-    setTimeout(() => btn.classList.remove("busy"), 3000);
+    setTimeout(() => btn.classList.remove("armed"), 3000);
   }
 }
 
 /* ============================================================== éditeur */
+// même éditeur que les autres cartes : formulaire Home Assistant (ha-form)
+const ent = (domain) => ({ entity: { domain } });
+const SCHEMA = [
+  { name: "person", selector: ent("person") },
+  { name: "title", selector: { text: {} } },
+  { name: "name", selector: { text: {} } },
+  { name: "picture", selector: { text: {} } },
+  { name: "find_phone_script", selector: { entity: { domain: ["script", "button", "input_button"] } } },
+  { name: "heart_rate", selector: ent("sensor") },
+  { name: "notifications", selector: { boolean: {} } },
+  { name: "notifications_max", selector: { number: { min: 1, max: 50, mode: "box" } } },
+  { name: "theme", selector: { select: { mode: "dropdown", options: THEMES.map(([value, label]) => ({ value, label })) } } },
+  { name: "demo", selector: { boolean: {} } },
+  ...PHONE_GROUPS.map(([title, fields]) => ({
+    type: "expandable", name: "phone", title: `Téléphone : ${title.toLowerCase()}`,
+    schema: fields.map(([key, , domain]) => ({ name: key, selector: ent(domain) })),
+  })),
+];
+const LABELS = {
+  person: "Personne",
+  title: "Titre (vide = nom de la personne)",
+  name: "Nom affiché (vide = celui de la personne)",
+  picture: "Photo, adresse d'une image (vide = celle de la personne)",
+  find_phone_script: "Bouton « Faire sonner le téléphone » : script ou bouton",
+  heart_rate: "Fréquence cardiaque (montre)",
+  notifications: "Afficher le contenu des notifications et le dernier SMS",
+  notifications_max: "Nombre de notifications listées au plus",
+  theme: "Couleurs de la carte",
+  demo: "Mode démo : personne et téléphone fictifs, pour les captures d'écran",
+  ...Object.fromEntries(PHONE_GROUPS.flatMap(([, f]) => f.map(([k, l]) => [k, l]))),
+};
+const DEFAULTS = { title: "", theme: "v2", notifications: true, notifications_max: 20, demo: false };
+
 class TrackerCardEditor extends HTMLElement {
-  setConfig(config) {
-    const c = config || {};
-    this._config = { ...c, phone: { ...(c.phone || {}) } };
-    const echo = this._last && JSON.stringify(this._last) === JSON.stringify(this._config);
-    if (!this._built || !echo) this._render();
+  setConfig(config) { this._config = { ...config }; this._draw(); }
+  set hass(hass) { this._hass = hass; if (this._form) { this._form.hass = hass; this._auto(); } else this._draw(); }
+  /** Entités trouvées automatiquement : affichées sous chaque champ vide de la section Téléphone. */
+  _auto() {
+    try { const probe = document.createElement("tracker-card"); probe.setConfig({ ...this._config, phone: {} }); probe._hass = this._hass; this._found = probe._entities(); } catch (e) { this._found = {}; }
   }
-  set hass(h) {
-    this._hass = h;
-    if (this._built) this.shadowRoot.querySelectorAll("ha-entity-picker").forEach((p) => { p.hass = h; });
-    else this._render();
-  }
-  _emit() {
-    const cfg = { ...this._config };
-    if (!Object.keys(cfg.phone || {}).length) delete cfg.phone;
-    for (const k of ["name", "picture", "find_phone_script", "heart_rate"]) if (!cfg[k]) delete cfg[k];
-    if (!cfg.demo) delete cfg.demo;
-    this._last = JSON.parse(JSON.stringify({ ...cfg, phone: { ...(cfg.phone || {}) } }));
-    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
-  }
-  _set(k, v) { this._config = { ...this._config, [k]: v }; this._emit(); }
-  _setPhone(k, v) {
-    const phone = { ...this._config.phone };
-    if (v) phone[k] = v; else delete phone[k];
-    this._config = { ...this._config, phone }; this._emit();
-  }
-  _render() {
-    if (!this._config) return;
-    if (!this.shadowRoot) this.attachShadow({ mode: "open" });
-    const sh = this.shadowRoot;
-    if (!this._hass) { sh.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--secondary-text-color,#888)">Chargement…</div>`; this._built = false; return; }
-    const c = this._config;
-    // entités trouvées automatiquement, affichées en indication sous chaque champ
-    const probe = document.createElement("tracker-card");
-    let auto = {};
-    try { probe.setConfig({ ...c, phone: {} }); probe._hass = this._hass; auto = probe._entities(); } catch (e) { /* rien */ }
-    sh.innerHTML = `
-      <style>
-        .f{margin-bottom:12px}.f label{display:block;font-size:12px;color:var(--secondary-text-color,#999);margin-bottom:3px}
-        input[type=text],select{width:100%;box-sizing:border-box;padding:7px 8px;border-radius:6px;border:1px solid var(--divider-color,#555);background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#eee);font-size:13px}
-        .ck{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px}
-        details{border:1px solid var(--divider-color,#444);border-radius:10px;margin-bottom:8px}
-        summary{cursor:pointer;padding:10px 12px;font-size:13px;font-weight:600}
-        .b{padding:0 12px 4px}.hint{font-size:11px;color:var(--secondary-text-color,#888);margin:2px 0 0}
-        .intro{font-size:12px;color:var(--secondary-text-color,#888);margin:4px 0 10px}
-      </style>
-      <div class="f"><label>Couleurs de la carte</label><select id="theme">${THEMES.map(([v, l]) => `<option value="${v}"${(c.theme || "v2") === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select></div>
-      <div class="f"><label class="ck"><input type="checkbox" id="demo"${c.demo ? " checked" : ""}> Mode démo : personne et téléphone fictifs, pour les captures d'écran</label></div>
-      <div class="f"><label>Titre</label><input type="text" id="title" value="${esc(c.title ?? "Présence")}"></div>
-      <div class="f"><label>Personne</label><ha-entity-picker id="person" data-domain="person"></ha-entity-picker></div>
-      <div class="f"><label>Nom affiché (facultatif, sinon celui de la personne)</label><input type="text" id="name" value="${esc(c.name || "")}"></div>
-      <div class="f"><label>Photo (adresse, facultatif, sinon celle de la personne)</label><input type="text" id="picture" value="${esc(c.picture || "")}"></div>
-      <div class="f"><label>Bouton « Faire sonner le téléphone » : script ou bouton (facultatif)</label><ha-entity-picker id="find_phone_script" data-domain="script,button,input_button"></ha-entity-picker></div>
-      <div class="f"><label>Fréquence cardiaque (montre, facultatif)</label><ha-entity-picker id="heart_rate" data-domain="sensor"></ha-entity-picker></div>
-      <div class="intro"><b>Téléphone</b> : laissez vide, la carte trouve les capteurs de l'application compagnon à partir de la personne. Ne remplissez un champ que pour changer l'entité utilisée.</div>
-      ${PHONE_GROUPS.map(([title, fields], gi) => `<details><summary>${esc(title)}</summary><div class="b">${fields.map(([k, l, d]) => `
-        <div class="f"><label>${esc(l)}</label><ha-entity-picker class="ph" data-key="${k}" data-domain="${d}"></ha-entity-picker>
-        ${!c.phone[k] && auto[k] ? `<div class="hint">Trouvée automatiquement : ${esc(auto[k])}</div>` : ""}</div>`).join("")}</div></details>`).join("")}`;
-    sh.querySelectorAll("ha-entity-picker").forEach((p) => {
-      p.hass = this._hass;
-      p.includeDomains = p.dataset.domain.split(",");
-      p.allowCustomEntity = true;
-      p.value = p.classList.contains("ph") ? c.phone[p.dataset.key] || "" : c[p.id] || "";
-      p.addEventListener("value-changed", (ev) => {
-        ev.stopPropagation();
-        if (p.classList.contains("ph")) this._setPhone(p.dataset.key, ev.detail.value);
-        else this._set(p.id, ev.detail.value);
+  _draw() {
+    if (!this._hass || !this._config) return;
+    this._auto();
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (s) => s.title || LABELS[s.name] || s.name;
+      this._form.computeHelper = (s) => {
+        if (!PHONE_KEYS[s.name] && !["tracker", "proximity", "rue", "ville"].includes(s.name)) {
+          return s.name === "person" ? "Les capteurs du téléphone de cette personne sont trouvés automatiquement." : undefined;
+        }
+        if (this._config.phone?.[s.name]) return undefined;
+        if (this._found?.[s.name]) return `Trouvée automatiquement : ${this._found[s.name]}`;
+        return s.name === "proximity" ? "Vide : distance calculée par la carte d'après le GPS du téléphone"
+          : s.name === "rue" || s.name === "ville" ? "Vide : lue dans l'adresse géocodée" : undefined;
+      };
+      this._form.addEventListener("value-changed", (ev) => {
+        const cfg = { ...ev.detail.value };
+        // ne garder que ce qui diffère des valeurs par défaut, et seulement les entités du téléphone remplies
+        for (const [k, v] of Object.entries(DEFAULTS)) if (cfg[k] === v || cfg[k] === undefined) delete cfg[k];
+        for (const k of ["name", "picture", "find_phone_script", "heart_rate"]) if (!cfg[k]) delete cfg[k];
+        const phone = Object.fromEntries(Object.entries(cfg.phone || {}).filter(([, v]) => v));
+        if (Object.keys(phone).length) cfg.phone = phone; else delete cfg.phone;
+        this._config = cfg;
+        this._auto();
+        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
       });
-    });
-    sh.getElementById("theme").addEventListener("change", (e) => this._set("theme", e.target.value));
-    sh.getElementById("demo").addEventListener("change", (e) => this._set("demo", e.target.checked));
-    for (const id of ["title", "name", "picture"]) sh.getElementById(id).addEventListener("change", (e) => this._set(id, e.target.value));
-    this._built = true;
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.schema = SCHEMA;
+    this._form.data = { ...DEFAULTS, ...this._config, phone: { ...(this._config.phone || {}) } };
   }
 }
 
