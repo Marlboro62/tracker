@@ -43,7 +43,7 @@ Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de
 
 *Captures réalisées en mode démo : personne, adresse et téléphone fictifs.*
 
-**En-tête « profil »** : la photo (ou l'initiale) est entourée d'un **anneau de batterie** coloré selon le niveau, avec le pourcentage et l'éclair de charge. À côté : le nom, la zone dans une pastille (verte à la maison, orange ailleurs, avec un halo de la même couleur en fond), l'adresse, l'activité, la distance de la maison et la fréquence cardiaque. En dessous, une rangée de **pastilles rondes** donne l'état d'un coup d'œil : Wi-Fi, réseau mobile (4G, 5G…), Bluetooth, VPN, nombre de notifications et heure de la prochaine alarme ; une pastille en pointillés signale ce qui est coupé.
+**En-tête « profil »** : la photo (ou l'initiale) est entourée d'un **anneau de présence** : **vert** à la maison, **orange** près de la maison (5 km par défaut, option `near_radius`), **rouge** au-delà. La pastille de zone et le halo de fond prennent la même couleur. À côté : le nom, l'adresse, l'activité, la distance de la maison et la fréquence cardiaque. En dessous, une rangée de **pastilles rondes** donne l'état d'un coup d'œil : batterie (avec l'éclair de charge), Wi-Fi, réseau mobile (4G, 5G…), Bluetooth, VPN, nombre de notifications et heure de la prochaine alarme ; une pastille en pointillés signale ce qui est coupé.
 
 ## Installation
 
@@ -79,6 +79,7 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 | `title` | Titre de la carte (vide : le nom de la personne) | — |
 | `theme` | `v2` bleu nuit, `auto` clair ou sombre selon Home Assistant, `ha` couleurs du thème Home Assistant | `v2` |
 | `find_phone_script` | Script ou bouton qui fait sonner le téléphone : affiche le bouton **Faire sonner le téléphone** | — |
+| `near_radius` | Rayon « près de la maison » en km : anneau orange jusqu'à cette distance, rouge au-delà | `5` |
 | `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |
 | `notifications` | `false` : ne pas afficher le contenu des notifications (onglet Notifications et dernier SMS) | `true` |
 | `system_notifications` | `false` : ne pas lister les notifications du système (Android, constructeur, services Google) | `true` |
@@ -92,7 +93,7 @@ Activez-les dans l'application compagnon (**Paramètres → Application compagno
 
 | Clé sous `phone:` | Capteur de l'application compagnon | Affichage |
 |---|---|---|
-| `battery` | `…_battery_level` | Anneau de batterie autour de la photo |
+| `battery` | `…_battery_level` | Pastille Batterie |
 | `charging` / `battery_state` | `…_is_charging` (Android) / `…_battery_state` (iPhone) | En charge |
 | `charger_type` | `…_charger_type` | Secteur, USB, sans fil |
 | `activity` | `…_detected_activity` (Android) / `…_activity` (iPhone) | Activité |

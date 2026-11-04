@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.1.0-beta.2";
+const CARD_VERSION = "1.1.0-beta.3";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -55,21 +55,18 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .tk-side { display: flex; align-items: center; gap: 6px; flex: none; }
 .tk-hero { --zc: var(--med-muted); position: relative; display: flex; align-items: flex-start; gap: 16px; padding: 18px 18px 12px;
   background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--zc) 24%, transparent), transparent 62%); }
-.tk-hero.home { --zc: var(--med-down); } .tk-hero.away { --zc: var(--pc-warn); }
+.tk-hero.home { --zc: var(--med-down); } .tk-hero.near, .tk-hero.away { --zc: var(--pc-warn); } .tk-hero.far { --zc: var(--t-red); }
 .tk-top { position: absolute; top: 10px; right: 14px; display: flex; gap: 6px; align-items: center; font-size: .7rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--med-muted); }
 .tk-top small { letter-spacing: 0; text-transform: none; border: 1px solid var(--med-line); border-radius: 999px; padding: 1px 8px; }
-.tk-ring { position: relative; width: 92px; height: 92px; flex: none; cursor: pointer; margin-bottom: 14px; }
+.tk-ring { position: relative; width: 92px; height: 92px; flex: none; cursor: pointer; }
 .tk-ring > svg { position: absolute; inset: 0; transform: rotate(-90deg); }
 .tk-ring circle { fill: none; stroke-width: 6; }
 .tk-ring .bg { stroke: color-mix(in srgb, var(--med-muted) 22%, transparent); }
-.tk-ring .fg { stroke: var(--bc, var(--med-muted)); stroke-linecap: round; transition: stroke-dashoffset .6s ease, stroke .4s;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--bc, transparent) 60%, transparent)); }
+.tk-ring .fg { stroke: var(--zc); stroke-linecap: round; transition: stroke-dashoffset .6s ease, stroke .4s;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--zc) 60%, transparent)); }
 .tk-face { position: absolute; inset: 11px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center;
   background: var(--med-surface); font-size: 1.7rem; font-weight: 700; color: var(--med-accent, var(--med-blue)); }
 .tk-face img { width: 100%; height: 100%; object-fit: cover; }
-.tk-bat { position: absolute; left: 50%; bottom: -20px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;
-  padding: 1px 8px; border-radius: 999px; background: var(--med-bg); border: 1px solid var(--bc, var(--med-line)); color: var(--bc, var(--med-text)); font-size: .74rem; font-weight: 700; }
-.tk-bat ha-icon { --mdc-icon-size: 13px; width: 13px; height: 13px; flex: none; display: inline-flex; }
 .tk-id { min-width: 0; flex: 1; display: grid; gap: 4px; padding-top: 4px; }
 .tk-name { font-size: 1.4rem; font-weight: 800; letter-spacing: .3px; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-zone { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: .8rem; font-weight: 700;
@@ -79,18 +76,18 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .tk-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .82rem; font-weight: 600; }
 .tk-meta span { display: inline-flex; align-items: center; gap: 4px; } .tk-meta ha-icon { --mdc-icon-size: 16px; color: var(--med-accent, var(--med-blue)); }
 .tk-meta .tk-hr { color: var(--t-red); }
-.tk-dials { display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 10px 4px; padding: 4px 12px 12px; }
+.tk-dials { display: grid; grid-template-columns: repeat(auto-fit, minmax(46px, 1fr)); gap: 10px 2px; padding: 4px 12px 12px; }
 .tk-dial { display: grid; justify-items: center; gap: 4px; min-width: 0; cursor: default; }
 .tk-dial[data-entity], .tk-dial[data-goto] { cursor: pointer; }
-.tk-dial > div { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .86rem;
+.tk-dial > div { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: .86rem;
   color: var(--c, var(--med-muted)); border: 3px solid color-mix(in srgb, var(--c, var(--med-muted)) 70%, transparent);
   background: color-mix(in srgb, var(--c, var(--med-muted)) 10%, var(--med-surface)); }
 .tk-dial.on > div { box-shadow: 0 0 12px color-mix(in srgb, var(--c) 45%, transparent); }
 .tk-dial.off > div { border-style: dashed; opacity: .7; }
-.tk-dial ha-icon { --mdc-icon-size: 22px; }
+.tk-dial ha-icon { --mdc-icon-size: 20px; }
 .tk-dial span { font-size: .7rem; color: var(--med-muted); max-width: 100%; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-dial[data-entity]:hover > div, .tk-dial[data-goto]:hover > div { transform: scale(1.06); }
-@container (max-width: 380px) { .tk-dials { grid-template-columns: repeat(auto-fit, minmax(46px, 1fr)); } .tk-ring { width: 76px; height: 76px; } .tk-face { inset: 9px; font-size: 1.4rem; } .tk-name { font-size: 1.15rem; } .tk-dial { min-width: 50px; } .tk-dial > div { width: 42px; height: 42px; } }
+@container (max-width: 380px) { .tk-dials { grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); } .tk-ring { width: 76px; height: 76px; } .tk-face { inset: 9px; font-size: 1.4rem; } .tk-name { font-size: 1.15rem; } .tk-dial > div { width: 38px; height: 38px; font-size: .78rem; } }
 .pc-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 12px 0; }
 .pc-tab { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; white-space: nowrap;
   border: 1px solid var(--med-line); background: var(--med-surface); font-size: .82rem; font-weight: 600; }
@@ -580,8 +577,10 @@ class TrackerCard extends HTMLElement {
     if (this._tab >= panels.length) this._tab = 0;
 
     // en-tête « profil » : photo dans l'anneau de batterie, zone, adresse, activité et distance
-    const C = 2 * Math.PI * 42, pct = Number.isFinite(bat) ? Math.max(0, Math.min(100, bat)) : 0;
-    const bcol = LVL[bl];
+    // anneau de présence : vert à la maison, orange jusqu'à near_radius km (5 par défaut), rouge au-delà
+    const radius = Number(cfg.near_radius) > 0 ? Number(cfg.near_radius) : 5;
+    const pres = !pstate || !ok(pstate) ? "" : home ? "home" : Number.isFinite(km) ? (km <= radius ? "near" : "far") : "away";
+    const presTip = { home: "À la maison", near: `À moins de ${radius} km de la maison`, far: `À plus de ${radius} km de la maison`, away: "Pas à la maison" }[pres] || "Présence inconnue";
     const meta = [
       has("activity") ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
@@ -593,6 +592,8 @@ class TrackerCard extends HTMLElement {
     const icon = (i) => `<ha-icon icon="${i}"></ha-icon>`;
     const alarmHm = alarmIso ? fmtDate(alarmIso, false) : null;
     const dials = [
+      has("battery") ? dial("battery", "Batterie", `${Number.isFinite(bat) ? Math.round(bat) : "—"}${charging ? `<ha-icon icon="mdi:flash" style="--mdc-icon-size:14px;margin-left:-1px"></ha-icon>` : `<small style="font-size:.62rem">%</small>`}`,
+        LVL[bl], "on", "", `Batterie ${Number.isFinite(bat) ? Math.round(bat) + " %" : ""}${charging ? ` · en charge${charger ? ` (${charger})` : ""}` : ""}`) : "",
       has("wifi_state") || has("wifi_ssid") ? dial(has("wifi_ssid") ? "wifi_ssid" : "wifi_state", "Wi-Fi", icon(wifiOn ? "mdi:wifi" : "mdi:wifi-off"), wifiOn ? "--med-down" : null, wifiOn ? "on" : "off", "", wifiOn ? `Wi-Fi : ${ssid || "connecté"}` : "Wi-Fi désactivé") : "",
       has("data_network") || net === "cellular" ? dial(has("data_network") ? "data_network" : "network_type", "Mobile", dn ? esc(String(dn).replace(/^NR$/i, "5G").slice(0, 4)) : icon("mdi:signal"), dataColor(dn) || "--med-blue", "on") : "",
       has("bt_state") ? dial("bt_state", "Bluetooth", icon(btOn ? "mdi:bluetooth" : "mdi:bluetooth-off"), btOn ? "--med-blue" : null, btOn ? "on" : "off", "", btOn ? (btNone ? "Bluetooth activé" : `Bluetooth : ${btc}`) : "Bluetooth désactivé") : "",
@@ -603,12 +604,11 @@ class TrackerCard extends HTMLElement {
     ].join("");
 
     const html = `
-      <div class="tk-hero ${pstate ? (home ? "home" : "away") : ""}">
+      <div class="tk-hero ${pres}">
         ${cfg.title || demo ? `<div class="tk-top">${esc(cfg.title || "")}${demo ? "<small>Démo</small>" : ""}</div>` : ""}
-        <div class="tk-ring"${has("battery") ? ent("battery") : demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`} style="--bc:var(${bcol})" title="Batterie">
-          <svg viewBox="0 0 92 92"><circle class="bg" cx="46" cy="46" r="42"></circle>${has("battery") ? `<circle class="fg" cx="46" cy="46" r="42" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - pct / 100)).toFixed(1)}"></circle>` : ""}</svg>
+        <div class="tk-ring"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`} title="${esc(presTip)}">
+          <svg viewBox="0 0 92 92"><circle class="bg" cx="46" cy="46" r="42"></circle>${pres ? `<circle class="fg" cx="46" cy="46" r="42"></circle>` : ""}</svg>
           <div class="tk-face">${pic ? `<img src="${esc(pic)}" alt="">` : esc((name || "?").trim().charAt(0).toUpperCase())}</div>
-          ${has("battery") ? `<div class="tk-bat">${charging ? `<ha-icon icon="mdi:flash"></ha-icon>` : ""}${Number.isFinite(bat) ? Math.round(bat) + " %" : "—"}</div>` : ""}
         </div>
         <div class="tk-id">
           <div class="tk-name">${esc(name)}</div>
@@ -671,6 +671,7 @@ const SCHEMA = [
   { name: "picture", selector: { text: {} } },
   { name: "find_phone_script", selector: { entity: { domain: ["script", "button", "input_button"] } } },
   { name: "heart_rate", selector: ent("sensor") },
+  { name: "near_radius", selector: { number: { min: 0.5, max: 100, step: 0.5, mode: "box", unit_of_measurement: "km" } } },
   { name: "notifications", selector: { boolean: {} } },
   { name: "system_notifications", selector: { boolean: {} } },
   { name: "notifications_max", selector: { number: { min: 1, max: 50, mode: "box" } } },
@@ -688,6 +689,7 @@ const LABELS = {
   picture: "Photo, adresse d'une image (vide = celle de la personne)",
   find_phone_script: "Bouton « Faire sonner le téléphone » : script ou bouton",
   heart_rate: "Fréquence cardiaque (montre)",
+  near_radius: "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà",
   notifications: "Afficher le contenu des notifications et le dernier SMS",
   system_notifications: "Afficher aussi les notifications du système (Android, constructeur, services Google)",
   notifications_max: "Nombre de notifications listées au plus, par section",
@@ -695,7 +697,7 @@ const LABELS = {
   demo: "Mode démo : personne et téléphone fictifs, pour les captures d'écran",
   ...Object.fromEntries(PHONE_GROUPS.flatMap(([, f]) => f.map(([k, l]) => [k, l]))),
 };
-const DEFAULTS = { title: "", theme: "v2", notifications: true, system_notifications: true, notifications_max: 20, demo: false };
+const DEFAULTS = { title: "", theme: "v2", near_radius: 5, notifications: true, system_notifications: true, notifications_max: 20, demo: false };
 
 class TrackerCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
