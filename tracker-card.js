@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.1.0-beta.1";
+const CARD_VERSION = "1.1.0-beta.2";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -53,12 +53,12 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .sub { font-size: .78rem; color: var(--med-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub b { font-weight: 600; } .sub b.home { color: var(--med-down); } .sub b.away { color: var(--pc-warn); }
 .tk-side { display: flex; align-items: center; gap: 6px; flex: none; }
-.tk-hero { --zc: var(--med-muted); position: relative; display: flex; align-items: center; gap: 16px; padding: 18px 18px 12px;
+.tk-hero { --zc: var(--med-muted); position: relative; display: flex; align-items: flex-start; gap: 16px; padding: 18px 18px 12px;
   background: radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--zc) 24%, transparent), transparent 62%); }
 .tk-hero.home { --zc: var(--med-down); } .tk-hero.away { --zc: var(--pc-warn); }
 .tk-top { position: absolute; top: 10px; right: 14px; display: flex; gap: 6px; align-items: center; font-size: .7rem; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--med-muted); }
 .tk-top small { letter-spacing: 0; text-transform: none; border: 1px solid var(--med-line); border-radius: 999px; padding: 1px 8px; }
-.tk-ring { position: relative; width: 92px; height: 92px; flex: none; cursor: pointer; }
+.tk-ring { position: relative; width: 92px; height: 92px; flex: none; cursor: pointer; margin-bottom: 14px; }
 .tk-ring > svg { position: absolute; inset: 0; transform: rotate(-90deg); }
 .tk-ring circle { fill: none; stroke-width: 6; }
 .tk-ring .bg { stroke: color-mix(in srgb, var(--med-muted) 22%, transparent); }
@@ -67,10 +67,10 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .tk-face { position: absolute; inset: 11px; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center;
   background: var(--med-surface); font-size: 1.7rem; font-weight: 700; color: var(--med-accent, var(--med-blue)); }
 .tk-face img { width: 100%; height: 100%; object-fit: cover; }
-.tk-bat { position: absolute; left: 50%; bottom: -6px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;
+.tk-bat { position: absolute; left: 50%; bottom: -20px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; white-space: nowrap;
   padding: 1px 8px; border-radius: 999px; background: var(--med-bg); border: 1px solid var(--bc, var(--med-line)); color: var(--bc, var(--med-text)); font-size: .74rem; font-weight: 700; }
 .tk-bat ha-icon { --mdc-icon-size: 13px; width: 13px; height: 13px; flex: none; display: inline-flex; }
-.tk-id { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.tk-id { min-width: 0; flex: 1; display: grid; gap: 4px; padding-top: 4px; }
 .tk-name { font-size: 1.4rem; font-weight: 800; letter-spacing: .3px; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tk-zone { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: .8rem; font-weight: 700;
   color: var(--zc); background: color-mix(in srgb, var(--zc) 14%, transparent); border: 1px solid color-mix(in srgb, var(--zc) 45%, transparent); }
