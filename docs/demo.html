@@ -8,7 +8,7 @@
   body { margin: 0; padding: 24px; background: #0b0b0b; color: #ddd; font-family: system-ui, sans-serif; }
   h1 { font-size: 18px; font-weight: 600; margin: 0 0 4px; }
   p { margin: 0 0 18px; font-size: 13px; color: #999; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 420px)); gap: 16px; align-items: start; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 420px)); gap: 16px; align-items: start; }
 </style>
 <script>
   // ha-icon de démonstration : icônes Material Design Icons servies par jsDelivr (page de démo uniquement)
@@ -31,7 +31,7 @@
 </head>
 <body>
 <h1>Présence et téléphone</h1>
-<p>Démo : personnes et téléphones fictifs. Couleurs :
+<p>Démo : personnes, adresses et téléphones fictifs, maison fictive au centre de la France. Anneau autour de la photo : <b style="color:#5fcf8a">vert</b> à la maison, <b style="color:#f0a33a">orange</b> à moins de 5 km, <b style="color:#ee4a4a">rouge</b> au-delà. Cliquez sur les onglets et les pastilles. Couleurs :
   <select id="theme"><option value="v2">bleu nuit</option><option value="auto">clair</option><option value="ha">Home Assistant</option></select></p>
 <div class="grid" id="grid"></div>
 <script type="module">
@@ -101,6 +101,25 @@ add("sensor.iphone_dominique_connection_type", "Wi-Fi", {}, d2);
 add("sensor.iphone_dominique_activity", "Stationary", {}, d2);
 add("sensor.iphone_dominique_geocoded_location", "3 place du Marché, 00000 Villeneuve, France", {}, d2);
 
+// Alex : téléphone Android à 23 km (anneau rouge), en voiture, batterie faible
+add("person.alex", "Travail", { friendly_name: "Alex", device_trackers: ["device_tracker.galaxy_alex"] });
+const d3 = "dev_alex";
+add("device_tracker.galaxy_alex", "Travail", { latitude: 46.66, longitude: 2.72 }, d3);
+add("sensor.galaxy_alex_battery_level", 12, { unit_of_measurement: "%" }, d3);
+add("binary_sensor.galaxy_alex_is_charging", "off", {}, d3);
+add("sensor.galaxy_alex_network_type", "cellular", {}, d3);
+add("binary_sensor.galaxy_alex_wifi_state", "off", {}, d3);
+add("sensor.galaxy_alex_data_network_type_sim_1", "LTE", {}, d3);
+add("binary_sensor.galaxy_alex_bluetooth_state", "on", {}, d3);
+add("sensor.galaxy_alex_bluetooth_connection", "Voiture démo", {}, d3);
+add("sensor.galaxy_alex_detected_activity", "in_vehicle", {}, d3);
+add("sensor.galaxy_alex_ringer_mode", "normal", {}, d3);
+add("sensor.galaxy_alex_active_notification_count", 0, {}, d3);
+add("sensor.galaxy_alex_next_alarm", "unavailable", {}, d3);
+add("sensor.galaxy_alex_geocoded_location", "Zone d'activités, 00000 Bourg-Démo", {}, d3);
+add("binary_sensor.wgdashboard_wg0_galaxy_alex_connected", "off");
+add("sensor.wgdashboard_wg0_galaxy_alex_last_handshake", new Date(now - 5 * H).toISOString());
+
 const params = new URLSearchParams(location.search), theme = params.get("theme") || "v2";
 document.getElementById("theme").value = theme;
 document.getElementById("theme").onchange = (e) => { location.search = "?theme=" + e.target.value; };
@@ -111,6 +130,7 @@ const hass = {
 for (const cfg of [
   { person: "person.camille", heart_rate: "sensor.montre_camille_heart_rate", find_phone_script: "script.sonner_camille" },
   { person: "person.dominique" },
+  { person: "person.alex" },
 ]) {
   const el = document.createElement("tracker-card");
   el.setConfig({ ...cfg, theme });

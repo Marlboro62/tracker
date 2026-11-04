@@ -43,6 +43,8 @@ Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de
 
 *Captures réalisées en mode démo : personne, adresse et téléphone fictifs.*
 
+🎮 **[Essayer la démo en ligne](https://marlboro62.github.io/tracker/docs/demo.html)** : la vraie carte avec trois personnes fictives (à la maison, près de la maison, loin), sans installer Home Assistant.
+
 **En-tête « profil »** : la photo (ou l'initiale) est entourée d'un **anneau de présence** : **vert** à la maison, **orange** près de la maison (5 km par défaut, option `near_radius`), **rouge** au-delà. La pastille de zone et le halo de fond prennent la même couleur. À côté : le nom, l'adresse, l'activité, la distance de la maison et la fréquence cardiaque. En dessous, une rangée de **pastilles rondes** donne l'état d'un coup d'œil : batterie (avec l'éclair de charge), Wi-Fi, réseau mobile (4G, 5G…), Bluetooth, VPN, nombre de notifications et heure de la prochaine alarme ; une pastille en pointillés signale ce qui est coupé.
 
 ## Installation
@@ -146,7 +148,7 @@ La carte affiche la position, l'adresse et le contenu des notifications de la pe
 
 ## Démo
 
-Ouvrez [`docs/demo.html`](docs/demo.html) avec un petit serveur web local (par exemple `python3 -m http.server` à la racine du dépôt) : deux personnes fictives, avec la détection automatique des capteurs.
+[Démo en ligne](https://marlboro62.github.io/tracker/docs/demo.html), ou [`docs/demo.html`](docs/demo.html) ouvert avec un petit serveur web local (par exemple `python3 -m http.server` à la racine du dépôt) : trois personnes fictives, avec la détection automatique des capteurs.
 
 ## Support
 
