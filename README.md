@@ -43,6 +43,8 @@ Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de
 
 *Captures réalisées en mode démo : personne, adresse et téléphone fictifs.*
 
+**En-tête « profil »** : la photo (ou l'initiale) est entourée d'un **anneau de batterie** coloré selon le niveau, avec le pourcentage et l'éclair de charge. À côté : le nom, la zone dans une pastille (verte à la maison, orange ailleurs, avec un halo de la même couleur en fond), l'adresse, l'activité, la distance de la maison et la fréquence cardiaque. En dessous, une rangée de **pastilles rondes** donne l'état d'un coup d'œil : Wi-Fi, réseau mobile (4G, 5G…), Bluetooth, VPN, nombre de notifications et heure de la prochaine alarme ; une pastille en pointillés signale ce qui est coupé.
+
 ## Installation
 
 ### Avec HACS (recommandé)
@@ -90,7 +92,7 @@ Activez-les dans l'application compagnon (**Paramètres → Application compagno
 
 | Clé sous `phone:` | Capteur de l'application compagnon | Affichage |
 |---|---|---|
-| `battery` | `…_battery_level` | Batterie (en-tête et jauge) |
+| `battery` | `…_battery_level` | Anneau de batterie autour de la photo |
 | `charging` / `battery_state` | `…_is_charging` (Android) / `…_battery_state` (iPhone) | En charge |
 | `charger_type` | `…_charger_type` | Secteur, USB, sans fil |
 | `activity` | `…_detected_activity` (Android) / `…_activity` (iPhone) | Activité |
@@ -116,7 +118,7 @@ Ce que la carte calcule elle-même, sans capteur modèle à créer :
 
 - **Distance** : calculée entre la position GPS du téléphone et la zone Maison, sans intégration Proximité ni capteur. Moins de 50 m compte comme à la maison (0 m).
 - **Rue et ville** : lues dans les attributs de l'adresse géocodée, sinon découpées dans son texte (« rue, code postal ville »).
-- **VPN WireGuard** (intégration wgdashboard_monitor) : la carte prend le peer dont le nom correspond au téléphone ou à la personne (`binary_sensor.wgdashboard_wg0_<peer>_connected`) et affiche, à côté des notifications, s'il est connecté, son dernier handshake et les données reçues et envoyées. Une pastille VPN s'ajoute dans l'en-tête quand il est connecté. Si le nom du peer ne correspond pas, indiquez-le sous `phone: vpn:`.
+- **VPN WireGuard** (intégration wgdashboard_monitor) : la carte prend le peer dont le nom correspond au téléphone ou à la personne (`binary_sensor.wgdashboard_wg0_<peer>_connected`) et affiche, à côté des notifications, s'il est connecté, son dernier handshake et les données reçues et envoyées. Une pastille ronde VPN s'affiche sous la photo. Si le nom du peer ne correspond pas, indiquez-le sous `phone: vpn:`.
 - **Notifications** (Android) : le contenu de chaque notification (application, titre, message, heure) est lu dans les attributs du capteur `…_active_notification_count`. L'onglet **Notifications** les liste de la plus récente à la plus ancienne, en deux sections : **Applications** (messages, WhatsApp, Home Assistant…) et **Système** (Android, Xiaomi, Samsung, Nothing, services Google…), et la tuile **Dernier SMS** montre le dernier message reçu dans l'application Messages, avec son expéditeur.
 
 Pour forcer une entité, indiquez-la sous `phone:` ; les autres restent détectées :
