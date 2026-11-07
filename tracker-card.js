@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.1.1-beta.1";
+const CARD_VERSION = "1.1.1-beta.2";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -201,6 +201,15 @@ const PHONE_KEYS = {
   geocoded: [/_geocoded_location$/],
   public_ip: [/_public_ip_address$/],
   last_reboot: [/_last_reboot$/],
+  // iPhone (application compagnon iOS) : concentration, activité physique, pression, stockage
+  focus: [/_focus$/],
+  focus_name: [/_focus_name$/],
+  steps: [/_steps$/],
+  walk_distance: [/_distance$/],
+  floors_up: [/_floors_ascended$/],
+  pressure: [/_pressure$/],
+  storage: [/_storage$/],
+  app_version: [/_app_version$/],
 };
 const PHONE_GROUPS = [
   ["Batterie", [["battery", "Niveau de batterie", "sensor"], ["charging", "En charge", "binary_sensor"], ["battery_state", "État de la batterie (iPhone)", "sensor"], ["charger_type", "Type de chargeur", "sensor"]]],
@@ -208,7 +217,8 @@ const PHONE_GROUPS = [
     ["hotspot", "Partage de connexion", "binary_sensor"], ["vpn", "VPN WireGuard : peer connecté (wgdashboard_monitor)", "binary_sensor"], ["bt_state", "Bluetooth activé", "binary_sensor"], ["bt_conn", "Connexion Bluetooth", "sensor"], ["sim", "Carte SIM", "sensor"], ["high_acc", "GPS haute précision", "binary_sensor"]]],
   ["Activité et notifications", [["activity", "Activité détectée", "sensor"], ["ringer", "Mode de sonnerie", "sensor"], ["notif_count", "Notifications", "sensor"], ["next_alarm", "Prochaine alarme", "sensor"]]],
   ["Localisation", [["tracker", "Suivi de position (device_tracker)", "device_tracker"], ["proximity", "Distance de la maison (facultatif, sinon calculée)", "sensor"], ["geocoded", "Adresse géocodée", "sensor"], ["rue", "Rue", "sensor"], ["ville", "Ville", "sensor"]]],
-  ["Système", [["public_ip", "IP publique", "sensor"], ["last_reboot", "Dernier redémarrage", "sensor"]]],
+  ["Système", [["public_ip", "IP publique", "sensor"], ["last_reboot", "Dernier redémarrage", "sensor"], ["storage", "Stockage (iPhone)", "sensor"], ["app_version", "Version de l'application compagnon", "sensor"]]],
+  ["iPhone", [["focus", "Concentration (Focus)", "binary_sensor"], ["focus_name", "Nom de la concentration", "sensor"], ["steps", "Pas", "sensor"], ["walk_distance", "Distance parcourue", "sensor"], ["floors_up", "Étages montés", "sensor"], ["pressure", "Pression atmosphérique", "sensor"]]],
 ];
 
 /* Notifications Android : attributs « <application>_<id>_post_time », « android.title_<application>_<id> »… */
@@ -536,11 +546,28 @@ class TrackerCard extends HTMLElement {
         <div class="pc-tn">${Number.isFinite(hsMs) ? `Handshake ${esc(ago(hsMs))}` : ""}${has("vpn_rx") || has("vpn_tx") ? `${Number.isFinite(hsMs) ? "<br>" : ""}↓ ${esc(vData("vpn_rx"))} · ↑ ${esc(vData("vpn_tx"))}` : ""}</div></div>` : "";
 
     const smsTile = sms ? `<div class="pc-t wide multi" data-goto="notifs"><div class="pc-tt"><ha-icon icon="mdi:message-text" style="color:var(--med-accent, var(--med-blue))"></ha-icon>Dernier SMS · ${esc(sms.title)} · ${esc(ago(sms.t))}</div><b>${esc(sms.text || sms.title)}</b></div>` : "";
+    // valeur numérique d'un capteur avec son unité (pas, distance, pression…)
+    const num = (k, digits = 0) => {
+      const v = parseFloat(this._v(k));
+      if (!Number.isFinite(v)) return null;
+      const u = demo ? "" : String(this._st(k)?.attributes?.unit_of_measurement || "");
+      if (u === "m" && v >= 1000) return `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km`;
+      return `${v.toLocaleString("fr-FR", { maximumFractionDigits: digits })}${u && u !== "steps" && u !== "floors" ? ` ${u}` : ""}`;
+    };
+    const focusOn = this._v("focus") === "on";
+    const focusName = this._v("focus_name");
     const p0 = sec("mdi:cellphone-information", "Téléphone", `<div class="pc-ts tk-g4">
+        ${tile("focus", "Concentration", focusOn ? "mdi:moon-waning-crescent" : "mdi:bell-ring-outline", focusOn ? (focusName && !/^(none|aucun)$/i.test(focusName) ? focusName : "Activée") : "Désactivée", focusOn ? "--pc-violet" : null)}
         ${tile("ringer", "Sonnerie", rIcon, rLbl, rCol)}
         ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : alarmIso ? "--pc-warn" : null)}
         ${vpnTile}
         ${smsTile}
+      </div>`.replace(/<div class="pc-ts tk-g4">\s*<\/div>/, ""))
+      + sec("mdi:shoe-print", "Activité du jour", `<div class="pc-ts tk-g4">
+        ${tile("steps", "Pas", "mdi:shoe-print", num("steps"), null)}
+        ${tile("walk_distance", "Distance", "mdi:map-marker-path", num("walk_distance", 1), null)}
+        ${tile("floors_up", "Étages montés", "mdi:stairs-up", num("floors_up"), null)}
+        ${tile("pressure", "Pression", "mdi:gauge", num("pressure", 1), null)}
       </div>`.replace(/<div class="pc-ts tk-g4">\s*<\/div>/, ""))
       + (cfg.find_phone_script ? sec("", "", `<button class="pc-btn bad" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon><span>Faire sonner le téléphone</span></button>`) : "");
 
@@ -569,6 +596,8 @@ class TrackerCard extends HTMLElement {
     const infoTiles = [
       tile("public_ip", "IP publique", "mdi:web", this._v("public_ip"), null, "wide"),
       tile("last_reboot", "Dernier redémarrage", "mdi:restart", rb ? fmtDate(rb, true) || rb : null, null, "wide"),
+      tile("storage", "Stockage", "mdi:harddisk", num("storage", 0), null),
+      tile("app_version", "Application compagnon", "mdi:cellphone-arrow-down", this._v("app_version"), null),
       tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
     ].join("");
     const p2 = sec("mdi:information-outline", "Appareil", infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
@@ -634,7 +663,7 @@ class TrackerCard extends HTMLElement {
       ${dials ? `<div class="tk-dials">${dials}</div>` : ""}
       ${panels.length > 1 ? `<div class="pc-tabs">${panels.map(([i, l], n) => `<button class="pc-tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}${panels[n][3] === "notifs" ? ` <small>${appN.length + sysN.length}</small>` : ""}</button>`).join("")}</div>` : ""}
       ${panels.map(([, , p], n) => `<div class="panel${n === this._tab ? " on" : ""}">${p}</div>`).join("")}
-      ${!panels.length && !demo ? `<div class="empty">${cfg.person ? "<b>Aucun capteur de téléphone trouvé</b><span>Indiquez-les dans l'éditeur de la carte (section Téléphone).</span>" : "<b>Choisissez une personne</b><span>dans l'éditeur de la carte.</span>"}</div>` : ""}`;
+      ${!panels.length && !demo && !Number.isFinite(bat) && !has("activity") ? `<div class="empty">${cfg.person ? "<b>Aucun capteur de téléphone trouvé</b><span>Indiquez-les dans l'éditeur de la carte (section Téléphone).</span>" : "<b>Choisissez une personne</b><span>dans l'éditeur de la carte.</span>"}</div>` : ""}`;
 
     if (full || !this._card) {
       this.shadowRoot.innerHTML = `${STYLE}<ha-card></ha-card>`;

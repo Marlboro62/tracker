@@ -94,7 +94,7 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 
 ### Capteurs du téléphone
 
-Activez-les dans l'application compagnon (**Paramètres → Application compagnon → Gérer les capteurs**). La carte les reconnaît à la fin de leur identifiant :
+Activez-les dans l'application compagnon (**Paramètres → Application compagnon → Gérer les capteurs**). Sur iPhone, iOS ne donne pas la sonnerie, l'alarme, le Bluetooth ni les notifications : la carte affiche à la place la concentration et l'activité du jour. La carte reconnaît les capteurs à la fin de leur identifiant :
 
 | Clé sous `phone:` | Capteur de l'application compagnon | Affichage |
 |---|---|---|
@@ -116,6 +116,10 @@ Activez-les dans l'application compagnon (**Paramètres → Application compagno
 | `geocoded` | `…_geocoded_location` | Adresse, rue et ville |
 | `public_ip` | `…_public_ip_address` | IP publique |
 | `last_reboot` | `…_last_reboot` | Dernier redémarrage |
+| `focus` / `focus_name` | `…_focus` / `…_focus_name` (iPhone) | Concentration (Ne pas déranger, Sommeil…) |
+| `steps` / `walk_distance` / `floors_up` | `…_steps` / `…_distance` / `…_floors_ascended` (iPhone) | Activité du jour : pas, distance, étages |
+| `pressure` | `…_pressure` (iPhone) | Pression atmosphérique |
+| `storage` / `app_version` | `…_storage` / `…_app_version` | Stockage, version de l'application compagnon |
 | `tracker` | le `device_tracker` du téléphone | Distance calculée depuis la maison |
 | `proximity` | facultatif : un capteur de distance (m, km ou miles) à utiliser à la place du calcul | Distance |
 | `rue` / `ville` | facultatif : vos propres capteurs à la place du découpage de l'adresse | Rue et ville |
