@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.2.0-beta.2";
+const CARD_VERSION = "1.2.0-beta.3";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -369,7 +369,11 @@ class TrackerCard extends HTMLElement {
     this._hass = h;
     if (!this._config) return;
     const ents = this._entities();
-    const fp = `${this._config.theme}|${h.themes?.darkMode}|` + (this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents)]
+    // temps de trajet (Waze, Google) : rafraîchis aussi quand ils changent
+    const reg = h.entities || {}, tt = this._config.travel_times;
+    const trips = Array.isArray(tt) ? tt.map((x) => (typeof x === "string" ? x : x?.entity)).filter(Boolean)
+      : tt === false ? [] : Object.keys(h.states).filter((e) => e.startsWith("sensor.") && /^(waze_travel_time|google_travel_time)$/.test(reg[e]?.platform || ""));
+    const fp = `${this._config.theme}|${h.themes?.darkMode}|` + (this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents), ...trips]
       .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") + (e === ents.notif_count ? JSON.stringify(s.attributes) : "") : "x"; }).join(";"));
     if (fp === this._fp) return;
     this._fp = fp;
@@ -604,7 +608,7 @@ class TrackerCard extends HTMLElement {
       tile("app_version", "Application compagnon", "mdi:cellphone-arrow-down", this._v("app_version"), null),
       tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
     ].join("");
-    const p2 = sec("mdi:information-outline", "Appareil", infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
+    const p2 = this._extras(this._st("tracker") || person) + sec("mdi:information-outline", "Appareil", infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
 
     // onglet Notifications
     // applications d'un côté, système (Android, constructeur, services Google) de l'autre
@@ -694,6 +698,59 @@ class TrackerCard extends HTMLElement {
     if (el) this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: el.dataset.entity }, bubbles: true, composed: true }));
   }
 
+  /** Distances aux lieux (zones ou capteurs de distance, option places) et temps de trajet (Waze, option travel_times). */
+  _extras(src) {
+    const cfg = this._config, h = this._hass;
+    if (cfg.demo) return this._extrasDemo();
+    const st = h.states, reg = h.entities || {};
+    const la = parseFloat(src?.attributes?.latitude), lo = parseFloat(src?.attributes?.longitude);
+    const hasPos = Number.isFinite(la) && Number.isFinite(lo);
+    const t = (id, label, icon, val, c, note) => `<div class="pc-t"${id ? ` data-entity="${esc(id)}"` : ""}${c ? ` style="--c:var(${c})"` : ""}><div class="pc-tt"><ha-icon icon="${esc(icon)}"></ha-icon>${esc(label)}</div><b>${esc(val)}</b>${note ? `<div class="pc-tn">${esc(note)}</div>` : ""}</div>`;
+    const box = (icon, title, tiles) => tiles ? `<div class="pc-sec"><div class="pc-h"><ha-icon icon="${icon}"></ha-icon>${esc(title)}</div><div class="pc-ts">${tiles}</div></div>` : "";
+    // lieux : ceux de l'option places, sinon toutes les zones (sauf Maison, déjà dans l'en-tête)
+    let places = cfg.places;
+    if (places === false) places = [];
+    else if (!Array.isArray(places)) places = Object.keys(st).filter((e) => e.startsWith("zone.") && e !== "zone.home");
+    const kmOf = (s) => {
+      const v = parseFloat(s?.state), u = s?.attributes?.unit_of_measurement;
+      return !Number.isFinite(v) ? NaN : u === "m" ? v / 1000 : u === "mi" ? v * 1.609344 : u === "ft" ? v * 0.0003048 : v;
+    };
+    const rows = places.map((p) => (typeof p === "string" ? { entity: p } : p || {})).filter((p) => p.entity && st[p.entity]).map((p) => {
+      const s = st[p.entity], zone = p.entity.startsWith("zone.");
+      let km = NaN, inside = false;
+      if (zone) {
+        const zl = parseFloat(s.attributes?.latitude), zo = parseFloat(s.attributes?.longitude);
+        if (hasPos && Number.isFinite(zl) && Number.isFinite(zo)) {
+          km = haversine(la, lo, zl, zo);
+          inside = km * 1000 <= (parseFloat(s.attributes?.radius) || 100);
+        }
+      } else km = kmOf(s);
+      return { ...p, s, km, inside, name: p.name || s.attributes?.friendly_name || p.entity, icon: p.icon || s.attributes?.icon || (zone ? "mdi:map-marker-radius" : "mdi:map-marker-distance") };
+    }).filter((p) => Number.isFinite(p.km)).sort((a, b) => a.km - b.km).slice(0, Number(cfg.places_max) || 8);
+    const pl = rows.map((p) => t(p.entity, p.name, p.icon, p.inside ? "Sur place" : fmtKm(p.km), p.inside ? "--med-down" : null)).join("");
+    // temps de trajet : capteurs de l'option travel_times, sinon ceux de Waze et Google trouvés
+    let trips = cfg.travel_times;
+    if (trips === false) trips = [];
+    else if (!Array.isArray(trips)) trips = Object.keys(st).filter((e) => e.startsWith("sensor.") && /^(waze_travel_time|google_travel_time)$/.test(reg[e]?.platform || "")).slice(0, 6);
+    const tr = trips.map((p) => (typeof p === "string" ? { entity: p } : p || {})).filter((p) => p.entity && st[p.entity]).map((p) => {
+      const s = st[p.entity], a = s.attributes || {}, min = parseFloat(s.state);
+      if (!Number.isFinite(min)) return "";
+      const m = Math.round(min), dur = m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`;
+      const dist = parseFloat(a.distance);
+      const note = [Number.isFinite(dist) ? `${dist.toLocaleString("fr-FR", { maximumFractionDigits: dist < 10 ? 1 : 0 })} km` : "", a.route ? `via ${a.route}` : ""].filter(Boolean).join(" · ");
+      // retard : au-delà du trajet habituel indiqué (option usual, en minutes)
+      const c = Number(p.usual) > 0 ? (m > p.usual * 1.25 ? "--t-red" : m > p.usual * 1.1 ? "--pc-warn" : "--med-down") : null;
+      return t(p.entity, p.name || a.friendly_name || p.entity, p.icon || "mdi:car-clock", dur, c, note);
+    }).join("");
+    return box("mdi:map-marker-multiple-outline", "Lieux", pl) + box("mdi:car-clock", "Temps de trajet", tr);
+  }
+
+  _extrasDemo() {
+    const t = (label, icon, val, c, note) => `<div class="pc-t"${c ? ` style="--c:var(${c})"` : ""}><div class="pc-tt"><ha-icon icon="${icon}"></ha-icon>${label}</div><b>${val}</b>${note ? `<div class="pc-tn">${note}</div>` : ""}</div>`;
+    return `<div class="pc-sec"><div class="pc-h"><ha-icon icon="mdi:map-marker-multiple-outline"></ha-icon>Lieux</div><div class="pc-ts">${t("Travail", "mdi:briefcase", "Sur place", "--med-down")}${t("Salle de sport", "mdi:dumbbell", "3,2 km")}${t("École", "mdi:school", "6,8 km")}</div></div>`
+      + `<div class="pc-sec"><div class="pc-h"><ha-icon icon="mdi:car-clock"></ha-icon>Temps de trajet</div><div class="pc-ts">${t("Travail → Maison", "mdi:car-clock", "28 min", "--pc-warn", "21 km · via A1")}${t("Maison → Travail", "mdi:car-clock", "22 min", "--med-down", "21 km · via D1001")}</div></div>`;
+  }
+
   async _find(btn) {
     const id = this._config.find_phone_script;
     if (!id || this._config.demo) return;
@@ -701,7 +758,11 @@ class TrackerCard extends HTMLElement {
     try {
       const [dom] = id.split(".");
       if (dom === "button" || dom === "input_button") await this._hass.callService(dom, "press", { entity_id: id });
-      else await this._hass.callService("script", "turn_on", { entity_id: id });
+      else {
+        // un seul script pour plusieurs téléphones : find_phone_data est passé au script (variables)
+        const data = this._config.find_phone_data;
+        await this._hass.callService("script", "turn_on", data && typeof data === "object" ? { entity_id: id, variables: data } : { entity_id: id });
+      }
     } catch (e) {
       console.error("[tracker-card] impossible de lancer", id, e);
     }
@@ -718,6 +779,9 @@ const SCHEMA = [
   { name: "name", selector: { text: {} } },
   { name: "picture", selector: { text: {} } },
   { name: "find_phone_script", selector: { entity: { domain: ["script", "button", "input_button"] } } },
+  { name: "find_phone_data", selector: { object: {} } },
+  { name: "places", selector: { object: {} } },
+  { name: "travel_times", selector: { object: {} } },
   { name: "heart_rate", selector: ent("sensor") },
   { name: "near_radius", selector: { number: { min: 0.5, max: 100, step: 0.5, mode: "box", unit_of_measurement: "km" } } },
   { name: "notifications", selector: { boolean: {} } },
@@ -736,6 +800,9 @@ const LABELS = {
   name: "Nom affiché (vide = celui de la personne)",
   picture: "Photo, adresse d'une image (vide = celle de la personne)",
   find_phone_script: "Bouton « Faire sonner le téléphone » : script ou bouton",
+  find_phone_data: "Données passées au script (par exemple { device: mobile_app_pixel }), pour un seul script commun à plusieurs téléphones",
+  places: "Lieux (onglet Infos) : liste de zones ou de capteurs de distance ; vide = toutes les zones, false = aucun",
+  travel_times: "Temps de trajet (onglet Infos) : capteurs Waze ou Google ; vide = ceux trouvés, false = aucun",
   heart_rate: "Fréquence cardiaque (montre)",
   near_radius: "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà",
   notifications: "Afficher le contenu des notifications et le dernier SMS",
@@ -773,7 +840,7 @@ class TrackerCardEditor extends HTMLElement {
         const cfg = { ...ev.detail.value };
         // ne garder que ce qui diffère des valeurs par défaut, et seulement les entités du téléphone remplies
         for (const [k, v] of Object.entries(DEFAULTS)) if (cfg[k] === v || cfg[k] === undefined) delete cfg[k];
-        for (const k of ["name", "picture", "find_phone_script", "heart_rate"]) if (!cfg[k]) delete cfg[k];
+        for (const k of ["name", "picture", "find_phone_script", "find_phone_data", "heart_rate", "places", "travel_times"]) if (cfg[k] === "" || cfg[k] == null || (typeof cfg[k] === "object" && !Array.isArray(cfg[k]) && !Object.keys(cfg[k]).length)) delete cfg[k];
         const phone = Object.fromEntries(Object.entries(cfg.phone || {}).filter(([, v]) => v));
         if (Object.keys(phone).length) cfg.phone = phone; else delete cfg.phone;
         this._config = cfg;
@@ -1086,7 +1153,7 @@ class TrackerIphoneCard extends TrackerCard {
     const zoneOnly = !demo && trkSt && ta.latitude == null && ta.longitude == null;
     const pGps = gps ? sec("mdi:crosshairs-gps", "Position GPS", `<div class="pc-ts tk-g4">${gps}</div>`)
       : zoneOnly ? sec("mdi:crosshairs-gps", "Position GPS", `<div class="pc-ts"><div class="pc-t wide"${col("--pc-warn")}><div class="pc-tt"><ha-icon icon="mdi:map-marker-off"></ha-icon>Coordonnées</div><b>Non envoyées</b><div class="pc-tn">L'application n'envoie que le nom de la zone. Pour la distance et la position GPS : Paramètres › Application compagnon › serveur › Position envoyée › Exacte.</div></div></div>`) : "";
-    const pInfo = pGps + sec("mdi:information-outline", "Appareil", grid([
+    const pInfo = pGps + this._extras(demo ? null : trkSt || person) + sec("mdi:information-outline", "Appareil", grid([
       tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
       tile("location_perm", "Autorisation de localisation", permOk ? "mdi:map-marker-check" : "mdi:map-marker-alert", iosFr(v("location_perm")), permOk ? "--med-down" : "--pc-warn",
         permOk ? "" : "note:Choisissez « Toujours » dans Réglages iOS › Home Assistant › Position, sinon la position ne se met plus à jour en arrière-plan."),
@@ -1159,6 +1226,8 @@ const IOS_SCHEMA = [
   { name: "picture", selector: { text: {} } },
   { name: "heart_rate", selector: ent("sensor") },
   { name: "near_radius", selector: { number: { min: 0.5, max: 100, step: 0.5, mode: "box", unit_of_measurement: "km" } } },
+  { name: "places", selector: { object: {} } },
+  { name: "travel_times", selector: { object: {} } },
   { name: "show_health", selector: { boolean: {} } },
   { name: "show_kiosk", selector: { boolean: {} } },
   { name: "theme", selector: { select: { mode: "dropdown", options: THEMES.map(([value, label]) => ({ value, label })) } } },
@@ -1168,6 +1237,8 @@ const IOS_LABELS = {
   person: "Personne", title: "Titre (vide = nom de la personne)", name: "Nom affiché (vide = celui de la personne)",
   picture: "Photo, adresse d'une image (vide = celle de la personne)", heart_rate: "Fréquence cardiaque (vide = Apple Santé)",
   near_radius: "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà",
+  places: "Lieux (onglet Infos) : liste de zones ou de capteurs de distance ; vide = toutes les zones, false = aucun",
+  travel_times: "Temps de trajet (onglet Infos) : capteurs Waze ou Google ; vide = ceux trouvés, false = aucun",
   show_health: "Onglet Santé (données Apple Santé)", show_kiosk: "Onglet Kiosque (mode kiosque et caméra)",
   theme: "Couleurs de la carte", demo: "Mode démo : personne et iPhone fictifs, pour les captures d'écran",
 };
@@ -1185,7 +1256,7 @@ class TrackerIphoneCardEditor extends HTMLElement {
       this._form.addEventListener("value-changed", (ev) => {
         const cfg = { ...ev.detail.value };
         for (const [k, val] of Object.entries(IOS_DEFAULTS)) if (cfg[k] === val || cfg[k] === undefined) delete cfg[k];
-        for (const k of ["name", "picture", "heart_rate"]) if (!cfg[k]) delete cfg[k];
+        for (const k of ["name", "picture", "heart_rate", "places", "travel_times"]) if (cfg[k] === "" || cfg[k] == null || (typeof cfg[k] === "object" && !Array.isArray(cfg[k]) && !Object.keys(cfg[k]).length)) delete cfg[k];
         this._config = cfg;
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
       });

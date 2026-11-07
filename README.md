@@ -84,6 +84,10 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 | `title` | Titre de la carte (vide : le nom de la personne) | — |
 | `theme` | `v2` bleu nuit, `auto` clair ou sombre selon Home Assistant, `ha` couleurs du thème Home Assistant | `v2` |
 | `find_phone_script` | Script ou bouton qui fait sonner le téléphone : affiche le bouton **Faire sonner le téléphone** | — |
+| `find_phone_data` | Données passées au script, pour **un seul script commun à plusieurs téléphones** (voir plus bas) | — |
+| `places` | **Lieux** de l'onglet Infos : zones ou capteurs de distance (voir plus bas) ; `false` pour les masquer | toutes les zones |
+| `places_max` | Nombre de lieux affichés au plus, du plus proche au plus lointain | `8` |
+| `travel_times` | **Temps de trajet** de l'onglet Infos : capteurs Waze ou Google (voir plus bas) ; `false` pour les masquer | ceux trouvés |
 | `near_radius` | Rayon « près de la maison » en km : anneau orange jusqu'à cette distance, rouge au-delà | `5` |
 | `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |
 | `notifications` | `false` : ne pas afficher le contenu des notifications (onglet Notifications et dernier SMS) | `true` |
@@ -142,6 +146,45 @@ phone:
   wifi_ssid: sensor.pixel_camille_wifi_connection
 ```
 
+### Lieux et temps de trajet
+
+L'onglet **Infos** affiche la **distance du téléphone à vos lieux** et les **temps de trajet**.
+
+- **Lieux** : par défaut, toutes les zones de Home Assistant (sauf Maison, déjà dans l'en-tête), de la plus proche à la plus lointaine, avec **Sur place** quand le téléphone est dans la zone. Pour choisir les lieux, ou ajouter un capteur de distance (intégration **Proximité**, par exemple) :
+
+  ```yaml
+  places:
+    - zone.travail
+    - entity: zone.salle_de_sport
+      name: Sport
+      icon: mdi:dumbbell
+    - sensor.ecole_distance        # capteur de distance (m, km ou miles)
+  ```
+
+- **Temps de trajet** : les capteurs des intégrations **Waze Travel Time** ou **Google Maps Travel Time** sont trouvés seuls (durée, distance, route). Pour en choisir, et colorer le temps quand il dépasse le trajet habituel (`usual`, en minutes : orange au-delà de 10 %, rouge au-delà de 25 %) :
+
+  ```yaml
+  travel_times:
+    - entity: sensor.waze_maison_travail
+      name: Maison → Travail
+      usual: 22
+    - entity: sensor.waze_travail_maison
+      name: Travail → Maison
+      usual: 25
+  ```
+
+### Un seul script pour faire sonner plusieurs téléphones
+
+Avec `find_phone_data`, la carte lance le script en lui passant ces données (variables du script) :
+
+```yaml
+find_phone_script: script.faire_sonner
+find_phone_data:
+  telephone: mobile_app_pixel_camille
+```
+
+Dans le script, la valeur se lit avec `{{ telephone }}`, par exemple `action: notify.{{ telephone }}`. Chaque carte passe son propre téléphone au même script.
+
 ### Interactions
 
 - **Onglets** Téléphone, Réseau, Notifications, Infos (sur une carte étroite, les onglets inactifs n'affichent que leur icône).
@@ -176,6 +219,7 @@ Seuls les capteurs présents s'affichent ; un onglet vide n'apparaît pas.
 | `title`, `name`, `picture` | Titre, nom affiché, photo | ceux de la personne |
 | `heart_rate` | Capteur de fréquence cardiaque | celui d'Apple Santé |
 | `near_radius` | Rayon « près de la maison », en km | `5` |
+| `places`, `places_max`, `travel_times` | Lieux et temps de trajet de l'onglet Infos, comme la carte Présence et téléphone | toutes les zones, capteurs trouvés |
 | `show_health` | Onglet Santé | `true` |
 | `show_kiosk` | Onglet Kiosque (mode kiosque et caméra) | `true` |
 | `theme` | Couleurs de la carte | `v2` |
