@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.1.0";
+const CARD_VERSION = "1.1.1-beta.1";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -389,6 +389,20 @@ class TrackerCard extends HTMLElement {
       return Object.keys(sts).filter((e) => e.split(".")[1]?.startsWith(obj + "_"));
     };
     const pools = order.map(poolOf);
+    // iPhone réinstallé ou renommé : le suivi (device_tracker.iphone_air) et les capteurs (sensor.iphone_…)
+    // peuvent être sur deux appareils de l'application compagnon. Si aucun appareil de la personne n'a de
+    // capteur de batterie, on prend l'appareil compagnon dont les capteurs commencent par le même nom,
+    // seulement s'il est le seul à correspondre.
+    if (tracker && !pools.flat().some((e) => /_battery_level$/.test(e))) {
+      const parts = tracker.split(".")[1].split("_");
+      for (let n = parts.length; n >= 1 && pools.length === order.length; n--) {
+        const pre = parts.slice(0, n).join("_") + "_";
+        const bat = Object.keys(reg).filter((e) => reg[e].platform === "mobile_app" && /^sensor\./.test(e) && e.slice(7).startsWith(pre) && /_battery_level$/.test(e));
+        const devs = [...new Set(bat.map((e) => reg[e].device_id).filter(Boolean))];
+        if (devs.length === 1) pools.push(Object.keys(reg).filter((e) => reg[e].device_id === devs[0]));
+        else if (devs.length > 1) break; // plusieurs téléphones possibles : on ne devine pas
+      }
+    }
     const live = (e) => sts[e] && ok(sts[e].state);
     for (const [key, res] of Object.entries(PHONE_KEYS)) {
       if (cfg.phone[key]) { out[key] = cfg.phone[key]; continue; }
