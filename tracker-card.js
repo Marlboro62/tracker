@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.1.1-beta.2";
+const CARD_VERSION = "1.1.1-beta.3";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -547,10 +547,12 @@ class TrackerCard extends HTMLElement {
 
     const smsTile = sms ? `<div class="pc-t wide multi" data-goto="notifs"><div class="pc-tt"><ha-icon icon="mdi:message-text" style="color:var(--med-accent, var(--med-blue))"></ha-icon>Dernier SMS · ${esc(sms.title)} · ${esc(ago(sms.t))}</div><b>${esc(sms.text || sms.title)}</b></div>` : "";
     // valeur numérique d'un capteur avec son unité (pas, distance, pression…)
+    // unité absente (certaines versions de l'application iOS) : celle que donne l'iPhone par défaut
+    const UNIT = { walk_distance: "m", pressure: "hPa", storage: "%" };
     const num = (k, digits = 0) => {
       const v = parseFloat(this._v(k));
       if (!Number.isFinite(v)) return null;
-      const u = demo ? "" : String(this._st(k)?.attributes?.unit_of_measurement || "");
+      const u = String((demo ? "" : this._st(k)?.attributes?.unit_of_measurement) || UNIT[k] || "");
       if (u === "m" && v >= 1000) return `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km`;
       return `${v.toLocaleString("fr-FR", { maximumFractionDigits: digits })}${u && u !== "steps" && u !== "floors" ? ` ${u}` : ""}`;
     };
