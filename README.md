@@ -163,6 +163,7 @@ Le même modèle que la carte Présence et téléphone, pour l'**application Hom
 - **Réseau** : type de connexion et technologie (4G, 5G), réseau Wi-Fi (SSID), borne Wi-Fi (BSSID), **carte SIM et eSIM** (opérateur, technologie radio, appels VoIP).
 - **Santé** (Apple Santé) : cœur (fréquence, au repos, à la marche, variabilité, tension), **sommeil** (durée, au lit, profond, paradoxal, léger, éveillé), activité (énergie active, exercice et heures debout avec leurs objectifs, énergie au repos, pas, distance, étages, VO₂ max), corps et constantes (oxygène dans le sang, respiration, température, glycémie, poids, masse grasse, masse maigre, taille, eau bue).
 - **Kiosque** : mode kiosque, économiseur d'écran, luminosité, volume ; caméra (mouvement et dernier mouvement, flux vidéo et spectateurs).
+- **Position GPS** (dans Infos), lue sur le suivi de position de l'application (pas celui de Life360 ou du routeur) : vitesse en km/h, direction, altitude et sa précision, précision GPS, étage. La vitesse s'affiche aussi dans l'en-tête dès 3 km/h. Si l'application n'envoie que le nom de la zone (**Position envoyée : Nom de zone seulement**), la carte l'indique : sans coordonnées, ni distance ni position GPS.
 - **Infos** : adresse, autorisation de localisation (avec un conseil si elle n'est pas sur « Toujours »), dernière mise à jour et sa cause, stockage libre et total, version de l'application.
 
 Seuls les capteurs présents s'affichent ; un onglet vide n'apparaît pas.

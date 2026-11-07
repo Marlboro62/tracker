@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.2.0-beta.1";
+const CARD_VERSION = "1.2.0-beta.2";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -950,13 +950,24 @@ class TrackerIphoneCard extends TrackerCard {
     const hrRaw = v("heart") ?? (cfg.heart_rate && h.states[cfg.heart_rate]?.state);
     const hr = parseInt(hrRaw, 10);
 
+    // suivi de position de l'iPhone : celui de l'application compagnon en priorité (pas Life360 ni le routeur)
+    const reg = h.entities || {};
+    const trk = demo ? null : [].concat(person?.attributes?.device_trackers || []).find((t) => reg[t]?.platform === "mobile_app" && h.states[t]) || E.tracker;
+    const trkSt = demo ? { attributes: { speed: 1.4, altitude: 86, course: 225, gps_accuracy: 12, vertical_accuracy: 6, floor: 2 }, state: "not_home" } : trk ? h.states[trk] : null;
+    const ta = trkSt?.attributes || {};
+    const tnum = (k) => { const x = parseFloat(ta[k]); return Number.isFinite(x) ? x : null; };
+    const spd = tnum("speed"), alt = tnum("altitude"), crs = tnum("course"), acc = tnum("gps_accuracy"), vacc = tnum("vertical_accuracy"), flr = tnum("floor");
+    const kmh = spd !== null && spd >= 0 ? spd * 3.6 : null;
+    const DIRS = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"];
+    const dirOf = (deg) => DIRS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+
     // adresse et distance (comme la carte Présence et téléphone)
     const geoSt = st("geocoded"), geo = v("geocoded");
     const ville = demo ? "Villeneuve" : attr(geoSt, "Locality");
     const where = geo || "";
     let km = NaN;
     if (!demo && !home) {
-      const src = this._st("tracker") || person;
+      const src = trkSt || person;
       const la = parseFloat(src?.attributes?.latitude), lo = parseFloat(src?.attributes?.longitude);
       const hz = h.states["zone.home"]?.attributes;
       const hla = parseFloat(hz?.latitude ?? h.config?.latitude), hlo = parseFloat(hz?.longitude ?? h.config?.longitude);
@@ -1062,7 +1073,20 @@ class TrackerIphoneCard extends TrackerCard {
     const permOk = /always/.test(perm);
     const lu = st("last_update");
     const total = demo ? "128 Go" : at("storage", "Total");
-    const pInfo = sec("mdi:information-outline", "Appareil", grid([
+    const gtile = (label, icon, val, c, note = "") => val == null ? "" : `<div class="pc-t"${trk && !demo ? ` data-entity="${esc(trk)}"` : ""}${col(c)}><div class="pc-tt"><ha-icon icon="${esc(icon)}"></ha-icon>${esc(label)}</div><b>${esc(val)}</b>${note ? `<div class="pc-tn">${esc(note)}</div>` : ""}</div>`;
+    const fr0 = (x, d = 0) => x.toLocaleString("fr-FR", { maximumFractionDigits: d });
+    const gps = [
+      gtile("Vitesse", "mdi:speedometer", kmh !== null ? `${fr0(kmh, kmh < 10 ? 1 : 0)} km/h` : null, kmh > 1 ? "--med-blue" : null),
+      gtile("Direction", "mdi:compass-outline", crs !== null && crs >= 0 && kmh > 1 ? `${dirOf(crs)} (${fr0(crs)}°)` : null),
+      gtile("Altitude", "mdi:image-filter-hdr", alt !== null ? `${fr0(alt)} m` : null, null, vacc !== null && vacc >= 0 ? `± ${fr0(vacc)} m` : ""),
+      gtile("Précision GPS", "mdi:crosshairs-gps", acc !== null ? `± ${fr0(acc)} m` : null, acc === null ? null : acc <= 20 ? "--med-down" : acc <= 100 ? "--pc-warn" : "--t-red"),
+      gtile("Étage", "mdi:office-building-marker", flr !== null ? fr0(flr) : null),
+    ].join("");
+    // « Position envoyée : Nom de zone seulement » : pas de coordonnées, donc ni distance ni GPS
+    const zoneOnly = !demo && trkSt && ta.latitude == null && ta.longitude == null;
+    const pGps = gps ? sec("mdi:crosshairs-gps", "Position GPS", `<div class="pc-ts tk-g4">${gps}</div>`)
+      : zoneOnly ? sec("mdi:crosshairs-gps", "Position GPS", `<div class="pc-ts"><div class="pc-t wide"${col("--pc-warn")}><div class="pc-tt"><ha-icon icon="mdi:map-marker-off"></ha-icon>Coordonnées</div><b>Non envoyées</b><div class="pc-tn">L'application n'envoie que le nom de la zone. Pour la distance et la position GPS : Paramètres › Application compagnon › serveur › Position envoyée › Exacte.</div></div></div>`) : "";
+    const pInfo = pGps + sec("mdi:information-outline", "Appareil", grid([
       tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
       tile("location_perm", "Autorisation de localisation", permOk ? "mdi:map-marker-check" : "mdi:map-marker-alert", iosFr(v("location_perm")), permOk ? "--med-down" : "--pc-warn",
         permOk ? "" : "note:Choisissez « Toujours » dans Réglages iOS › Home Assistant › Position, sinon la position ne se met plus à jour en arrière-plan."),
@@ -1083,6 +1107,7 @@ class TrackerIphoneCard extends TrackerCard {
     const meta = [
       has("activity") && ok(act) && act !== "unknown" ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
+      kmh > 3 ? `<span style="color:var(--med-blue)"><ha-icon icon="mdi:speedometer"></ha-icon>${Math.round(kmh)} km/h</span>` : "",
       Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
       focusOn ? `<span style="color:var(--pc-violet)"><ha-icon icon="mdi:moon-waning-crescent"></ha-icon>Concentration</span>` : "",
       charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash"></ha-icon>En charge</span>` : "",
