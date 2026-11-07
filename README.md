@@ -149,6 +149,39 @@ phone:
 - **Clic sur la tuile Notifications ou Dernier SMS** : ouvre l'onglet Notifications.
 - **Faire sonner le téléphone** : lance le script (ou appuie sur le bouton) indiqué dans `find_phone_script`.
 
+## Carte iPhone — `custom:tracker-iphone-card`
+
+```yaml
+type: custom:tracker-iphone-card
+person: person.prenom
+```
+
+Le même modèle que la carte Présence et téléphone, pour l'**application Home Assistant sur iPhone** : iOS ne donne ni sonnerie, ni alarme, ni Bluetooth, ni notifications, mais d'autres capteurs. La carte les reconnaît tous à la fin de leur identifiant, sur l'appareil de la personne.
+
+- **En-tête** : présence, adresse, activité, distance, fréquence cardiaque, concentration ; pastilles **Batterie** (orange en mode économie d'énergie), **Wi-Fi** ou **Mobile** (4G, 5G), **Montre** (batterie de l'Apple Watch) et **Position** quand l'autorisation de localisation n'est pas sur « Toujours ».
+- **iPhone** : batterie et économie d'énergie, concentration, activité et sa confiance ; **activité du jour** (pas, distance, étages montés et descendus, allure moyenne, pression) ; **Apple Watch** (batterie, charge).
+- **Réseau** : type de connexion et technologie (4G, 5G), réseau Wi-Fi (SSID), borne Wi-Fi (BSSID), **carte SIM et eSIM** (opérateur, technologie radio, appels VoIP).
+- **Santé** (Apple Santé) : cœur (fréquence, au repos, à la marche, variabilité, tension), **sommeil** (durée, au lit, profond, paradoxal, léger, éveillé), activité (énergie active, exercice et heures debout avec leurs objectifs, énergie au repos, pas, distance, étages, VO₂ max), corps et constantes (oxygène dans le sang, respiration, température, glycémie, poids, masse grasse, masse maigre, taille, eau bue).
+- **Kiosque** : mode kiosque, économiseur d'écran, luminosité, volume ; caméra (mouvement et dernier mouvement, flux vidéo et spectateurs).
+- **Infos** : adresse, autorisation de localisation (avec un conseil si elle n'est pas sur « Toujours »), dernière mise à jour et sa cause, stockage libre et total, version de l'application.
+
+Seuls les capteurs présents s'affichent ; un onglet vide n'apparaît pas.
+
+**Activer les capteurs** : dans l'application, **Paramètres › Application compagnon › Capteurs**. Les capteurs **Apple Santé** sont tous désactivés au départ : activez chacun, puis autorisez sa lecture dans **Réglages iOS › Confidentialité et sécurité › Santé › Home Assistant**. La **batterie de l'Apple Watch** demande une complication Home Assistant sur le cadran de la montre. Les capteurs de pas, distance, étages, allure, activité et pression demandent l'accès à **Mouvements et forme physique**.
+
+| Option | Rôle | Défaut |
+| --- | --- | --- |
+| `person` | La personne suivie | — |
+| `title`, `name`, `picture` | Titre, nom affiché, photo | ceux de la personne |
+| `heart_rate` | Capteur de fréquence cardiaque | celui d'Apple Santé |
+| `near_radius` | Rayon « près de la maison », en km | `5` |
+| `show_health` | Onglet Santé | `true` |
+| `show_kiosk` | Onglet Kiosque (mode kiosque et caméra) | `true` |
+| `theme` | Couleurs de la carte | `v2` |
+| `demo` | Personne et iPhone fictifs, pour les captures d'écran | `false` |
+
+> Les données de santé sont personnelles : la carte les montre à toute personne qui ouvre le tableau de bord. Masquez-les avec `show_health: false` sur un tableau de bord partagé.
+
 ## Vie privée
 
 La carte affiche la position, l'adresse et le contenu des notifications de la personne suivie : réservez-la aux tableaux de bord des personnes concernées, ou masquez les notifications avec `notifications: false`. Elle ne contacte aucun service extérieur, tout est lu dans Home Assistant. Pour une capture à partager, activez le **mode démo** (`demo: true`).

@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.1.1-beta.4";
+const CARD_VERSION = "1.2.0-beta.1";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -414,7 +414,7 @@ class TrackerCard extends HTMLElement {
       }
     }
     const live = (e) => sts[e] && ok(sts[e].state);
-    for (const [key, res] of Object.entries(PHONE_KEYS)) {
+    for (const [key, res] of Object.entries(this.constructor.KEYS || PHONE_KEYS)) {
       if (cfg.phone[key]) { out[key] = cfg.phone[key]; continue; }
       let first = null, hit = null;
       for (const pool of pools) {
@@ -788,8 +788,394 @@ class TrackerCardEditor extends HTMLElement {
   }
 }
 
+/* =========================================================== carte iPhone */
+// Même modèle que la carte Présence et téléphone, pour l'application compagnon iOS : tous les capteurs
+// qu'elle peut envoyer (documentation companion.home-assistant.io), Apple Santé, Apple Watch, kiosque et caméra.
+const IOS_KEYS = {
+  battery: [/(?<!watch)_battery_level$/],
+  battery_state: [/(?<!watch)_battery_state$/],
+  watch_battery: [/_watch_battery_level$/],
+  watch_battery_state: [/_watch_battery_state$/],
+  activity: [/_activity$/],
+  focus: [/_focus$/],
+  steps: [/(?<!health)_steps$/],
+  walk_distance: [/(?<!running)_distance$/],
+  floors_up: [/_floors_ascended$/],
+  floors_down: [/_floors_descended$/],
+  pace: [/_average_active_pace$/],
+  pressure: [/(?<!blood)_pressure$/],
+  connection: [/_connection_type$/],
+  ssid: [/_ssid$/],
+  bssid: [/_bssid$/],
+  sim1: [/_sim_1$/],
+  sim2: [/_sim_2$/],
+  geocoded: [/_geocoded_location$/],
+  storage: [/_storage$/],
+  app_version: [/_app_version$/],
+  last_update: [/_last_update_trigger$/],
+  location_perm: [/_location_permission$/],
+  kiosk_mode: [/_kiosk_mode$/],
+  kiosk_screensaver: [/_kiosk_screensaver$/],
+  kiosk_brightness: [/_kiosk_brightness$/],
+  kiosk_volume: [/_kiosk_volume$/],
+  camera_motion: [/_camera_motion$/],
+  camera_stream: [/_camera_stream$/],
+  // Apple Santé (désactivés par défaut dans l'application, un par un)
+  h_steps: [/_health_steps$/],
+  h_distance: [/_walking_running_distance$/],
+  active_energy: [/_active_energy$/],
+  resting_energy: [/_resting_energy$/],
+  flights: [/_flights_climbed$/],
+  exercise_time: [/_exercise_time$/],
+  vo2_max: [/_vo2_max$/],
+  move_goal: [/_move_goal$/],
+  exercise_goal: [/_exercise_goal$/],
+  stand_hours: [/_stand_hours$/],
+  stand_goal: [/_stand_goal$/],
+  weight: [/_weight$/],
+  body_fat: [/_body_fat_percentage$/],
+  lean_mass: [/_lean_body_mass$/],
+  height: [/_height$/],
+  heart: [/(?<!resting|walking)_heart_rate$/],
+  heart_rest: [/_resting_heart_rate$/],
+  heart_walk: [/_walking_heart_rate_average$/],
+  hrv: [/_heart_rate_variability$/],
+  bp_sys: [/_blood_pressure_systolic$/],
+  bp_dia: [/_blood_pressure_diastolic$/],
+  water: [/_water$/],
+  resp_rate: [/_respiratory_rate$/],
+  spo2: [/_blood_oxygen$/],
+  sleep: [/_sleep_duration$/],
+  in_bed: [/_in_bed$/],
+  awake: [/_awake$/],
+  sleep_core: [/_core_sleep$/],
+  sleep_deep: [/_deep_sleep$/],
+  sleep_rem: [/_rem_sleep$/],
+  body_temp: [/(?<!basal)_body_temperature$/],
+  basal_temp: [/_basal_body_temperature$/],
+  glucose: [/_blood_glucose$/],
+};
+const IOS_STATE = {
+  charging: "En charge", "not charging": "Pas en charge", full: "Pleine",
+  "wi-fi": "Wi-Fi", cellular: "Mobile", "no connection": "Aucune connexion", "not connected": "Non connecté", "unknown technology": "Technologie inconnue",
+  always: "Toujours", "when in use": "Pendant l'utilisation", "authorized when in use": "Pendant l'utilisation", "authorized always": "Toujours",
+  never: "Jamais", denied: "Refusée", restricted: "Restreinte", "not determined": "Pas encore choisie",
+  manual: "Manuelle", launch: "Ouverture de l'application", periodic: "Périodique", "significant location change": "Changement de position important",
+  "geographic region entered": "Entrée dans une zone", "geographic region exited": "Sortie d'une zone", "push notification": "Notification push",
+  "background fetch": "En arrière-plan", siri: "Siri", "ibeacon region entered": "Balise iBeacon", registration: "Enregistrement", signaled: "Signal de l'application",
+  streaming: "Diffusion en cours", idle: "En attente", on: "Activé", off: "Désactivé",
+};
+const iosFr = (v) => (v == null ? null : IOS_STATE[String(v).toLowerCase().trim()] || String(v));
+/** Technologie radio iOS (CTRadioAccessTechnologyNR, LTE…) en 5G, 4G, 3G, 2G. */
+const radioFr = (v) => {
+  const r = String(v || "").replace(/^CTRadioAccessTechnology/i, "");
+  return /NR/i.test(r) ? "5G" : /LTE/i.test(r) ? "4G" : /WCDMA|HSDPA|HSUPA|CDMAEVDO|eHRPD/i.test(r) ? "3G" : /GPRS|Edge|CDMA1x/i.test(r) ? "2G" : r || null;
+};
+const IOS_DEMO = {
+  battery: "64", battery_state: "Not Charging", watch_battery: "82", watch_battery_state: "Charging", activity: "Walking", focus: "on",
+  steps: "6420", walk_distance: "4630", floors_up: "7", floors_down: "5", pace: "1.32", pressure: "1013.4", connection: "Cellular", ssid: "Not Connected",
+  bssid: "Not Connected", sim1: "Opérateur démo", sim2: "Opérateur eSIM", geocoded: "12 rue des Lilas, Villeneuve", storage: "62", app_version: "2026.10.3",
+  last_update: "Significant Location Change", location_perm: "Always", kiosk_mode: "off", camera_motion: "off", camera_stream: "idle",
+  heart: "74", heart_rest: "58", hrv: "46", spo2: "98", resp_rate: "15", sleep: "7.3", sleep_deep: "1.2", sleep_rem: "1.6", sleep_core: "4.1", awake: "0.4",
+  active_energy: "420", exercise_time: "34", stand_hours: "9", move_goal: "500", exercise_goal: "30", stand_goal: "12", water: "1.4",
+};
+
+class TrackerIphoneCard extends TrackerCard {
+  static get KEYS() { return IOS_KEYS; }
+  static getConfigElement() { return document.createElement("tracker-iphone-card-editor"); }
+  getCardSize() { return 8; }
+
+  _v(key) {
+    if (this._config.demo) return IOS_DEMO[key] ?? (key === "person" ? null : null);
+    return super._v(key);
+  }
+
+  _render(full) {
+    if (!this._hass || !this._config) return;
+    const cfg = this._config, h = this._hass, demo = !!cfg.demo;
+    const E = demo ? Object.fromEntries(Object.keys(IOS_DEMO).map((k) => [k, k])) : this._entities();
+    const person = demo ? null : h.states[cfg.person];
+    const name = demo ? "Camille" : cfg.name || person?.attributes?.friendly_name || (cfg.person ? cfg.person.split(".")[1] : "Personne");
+    const pic = demo ? "" : cfg.picture || person?.attributes?.entity_picture || "";
+    const pstate = demo ? "not_home" : person?.state;
+    const home = pstate === "home";
+    const zone = !pstate || !ok(pstate) ? null : home ? "À la maison" : pstate === "not_home" ? "Pas à la maison" : pstate;
+    const has = (k) => (demo ? IOS_DEMO[k] != null : !!E[k]);
+    const st = (k) => (demo ? null : this._st(k));
+    const v = (k) => this._v(k);
+    const at = (k, ...n) => (demo ? null : attr(st(k), ...n));
+    const entA = (k) => (demo || !E[k] ? "" : ` data-entity="${esc(E[k])}"`);
+    const col = (c) => (c ? ` style="--c:var(${c})"` : "");
+    /** Nombre et unité d'un capteur, en français. */
+    const UNIT = { walk_distance: "m", pressure: "hPa", storage: "%", heart: "bpm", heart_rest: "bpm", heart_walk: "bpm", hrv: "ms", spo2: "%", resp_rate: "/min",
+      sleep: "h", sleep_deep: "h", sleep_rem: "h", sleep_core: "h", awake: "h", in_bed: "h", active_energy: "kcal", resting_energy: "kcal", exercise_time: "min",
+      stand_hours: "h", move_goal: "kcal", exercise_goal: "min", stand_goal: "h", water: "L", kiosk_brightness: "%", kiosk_volume: "%", watch_battery: "%", battery: "%" };
+    const num = (k, digits = 0) => {
+      const raw = v(k), n = parseFloat(raw);
+      if (raw == null) return null;
+      if (!Number.isFinite(n)) return iosFr(raw);
+      let u = String((demo ? "" : st(k)?.attributes?.unit_of_measurement) || UNIT[k] || "");
+      if (/^%\s*available$/i.test(u)) u = "% libre";
+      if (u === "m" && n >= 1000) return `${(n / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km`;
+      if (/^(steps|floors|count)$/i.test(u)) u = "";
+      // durées (sommeil, heures debout) : « 7 h 12 » plutôt que « 7,2 h »
+      if (/^(h|hr|hours?)$/i.test(u) && !/stand/.test(k)) { const m = Math.round(n * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; }
+      if (/^min$/i.test(u) && n >= 60 && /sleep|bed|awake/.test(k)) { const m = Math.round(n); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; }
+      return `${n.toLocaleString("fr-FR", { maximumFractionDigits: digits })}${u ? ` ${u}` : ""}`;
+    };
+    const tile = (k, label, icon, val, c, opts = "") => has(k) && val != null && val !== ""
+      ? `<div class="pc-t${opts.includes("wide") ? " wide" : ""}"${entA(k)}${col(c)}><div class="pc-tt"><ha-icon icon="${esc(icon)}"></ha-icon>${esc(label)}</div><b>${esc(val)}</b>${opts.includes("note:") ? `<div class="pc-tn">${esc(opts.split("note:")[1])}</div>` : ""}</div>`
+      : "";
+    const grid = (tiles) => { const t = tiles.join(""); return t ? `<div class="pc-ts tk-g4">${t}</div>` : ""; };
+    const sec = (icon, title, body) => (body.trim() ? `<div class="pc-sec"><div class="pc-h"><ha-icon icon="${icon}"></ha-icon>${esc(title)}</div>${body}</div>` : "");
+
+    // batterie de l'iPhone
+    const bat = parseFloat(v("battery")), bstate = String(v("battery_state") || "").toLowerCase();
+    const charging = bstate === "charging" || bstate === "full";
+    const lowPower = demo ? false : String(at("battery_state", "Low Power Mode") ?? "").toLowerCase() === "true";
+    const bl = batLevel(bat);
+    // Apple Watch
+    const wbat = parseFloat(v("watch_battery")), wchg = /charging|full/i.test(String(v("watch_battery_state") || "")) && !/not/i.test(String(v("watch_battery_state") || ""));
+    // réseau
+    const conn = String(v("connection") || "").toLowerCase();
+    const wifiOn = conn === "wi-fi" || (ok(v("ssid")) && !/not connected/i.test(v("ssid")));
+    const cellTech = demo ? "5G" : at("connection", "Cellular Technology");
+    const ssid = ok(v("ssid")) && !/not connected/i.test(v("ssid")) ? v("ssid") : null;
+    // activité, concentration
+    const act = String(v("activity") || "").toLowerCase().trim();
+    const [aIcon, aLbl] = ACTIVITY[act] || ["mdi:motion-sensor", act];
+    const conf = demo ? "High" : at("activity", "confidence");
+    const focusOn = v("focus") === "on";
+    // fréquence cardiaque : Apple Santé, sinon capteur de la configuration
+    const hrRaw = v("heart") ?? (cfg.heart_rate && h.states[cfg.heart_rate]?.state);
+    const hr = parseInt(hrRaw, 10);
+
+    // adresse et distance (comme la carte Présence et téléphone)
+    const geoSt = st("geocoded"), geo = v("geocoded");
+    const ville = demo ? "Villeneuve" : attr(geoSt, "Locality");
+    const where = geo || "";
+    let km = NaN;
+    if (!demo && !home) {
+      const src = this._st("tracker") || person;
+      const la = parseFloat(src?.attributes?.latitude), lo = parseFloat(src?.attributes?.longitude);
+      const hz = h.states["zone.home"]?.attributes;
+      const hla = parseFloat(hz?.latitude ?? h.config?.latitude), hlo = parseFloat(hz?.longitude ?? h.config?.longitude);
+      if ([la, lo, hla, hlo].every(Number.isFinite)) km = haversine(la, lo, hla, hlo);
+      if (Number.isFinite(km) && km < 0.05) km = 0;
+    }
+    if (demo) km = 2.4;
+
+    // onglet Téléphone
+    const pace = parseFloat(v("pace"));
+    // allure : la documentation donne m/s ; une valeur > 3 est lue comme des secondes par mètre
+    const paceTxt = !Number.isFinite(pace) || pace <= 0 ? null : (() => { const spk = pace > 3 ? pace * 1000 : 1000 / pace; const m = Math.floor(spk / 60), s = Math.round(spk % 60); return `${m} min ${String(s).padStart(2, "0")} /km`; })();
+    const pPhone = sec("mdi:cellphone", "iPhone", grid([
+      tile("battery_state", "Batterie", charging ? "mdi:battery-charging" : batIcon(bat, false), `${iosFr(v("battery_state"))}${lowPower ? " · économie d'énergie" : ""}`, lowPower ? "--pc-warn" : charging ? "--med-down" : null, lowPower ? "wide" : ""),
+      tile("focus", "Concentration", focusOn ? "mdi:moon-waning-crescent" : "mdi:bell-ring-outline", focusOn ? "Activée" : "Désactivée", focusOn ? "--pc-violet" : null),
+      tile("activity", "Activité", aIcon, ok(act) && act !== "unknown" ? `${aLbl}${conf ? ` · confiance ${String(conf).toLowerCase() === "high" ? "élevée" : String(conf).toLowerCase() === "medium" ? "moyenne" : "faible"}` : ""}` : "Inconnue", null),
+    ])) + sec("mdi:shoe-print", "Activité du jour", grid([
+      tile("steps", "Pas", "mdi:shoe-print", num("steps")),
+      tile("walk_distance", "Distance", "mdi:map-marker-path", num("walk_distance", 1)),
+      tile("floors_up", "Étages montés", "mdi:stairs-up", num("floors_up")),
+      tile("floors_down", "Étages descendus", "mdi:stairs-down", num("floors_down")),
+      tile("pace", "Allure moyenne", "mdi:run-fast", paceTxt),
+      tile("pressure", "Pression", "mdi:gauge", num("pressure", 1)),
+    ])) + sec("mdi:watch-variant", "Apple Watch", grid([
+      tile("watch_battery", "Batterie de la montre", wchg ? "mdi:battery-charging" : batIcon(wbat, false), num("watch_battery"), LVL[batLevel(wbat)]),
+      tile("watch_battery_state", "Charge de la montre", "mdi:watch", iosFr(v("watch_battery_state"))),
+    ]));
+
+    // onglet Réseau
+    const sim = (k) => {
+      if (!has(k)) return "";
+      const carrier = demo ? v(k) : at(k, "Carrier Name") || v(k);
+      const radio = demo ? "5G" : radioFr(at(k, "Current Radio Technology"));
+      const voip = demo ? null : at(k, "Allows VoIP");
+      return tile(k, k === "sim1" ? "Carte SIM" : "eSIM", "mdi:sim", [carrier, radio].filter(Boolean).join(" · "), "--med-blue", voip != null ? `note:Appels VoIP ${String(voip).toLowerCase() === "true" ? "autorisés" : "non autorisés"}` : "");
+    };
+    const pNet = sec("mdi:access-point-network", "Connexion", grid([
+      tile("connection", "Connexion", wifiOn ? "mdi:wifi" : conn === "cellular" ? "mdi:signal" : "mdi:signal-off", `${iosFr(v("connection"))}${conn === "cellular" && cellTech ? ` · ${cellTech}` : ""}`, wifiOn ? "--med-down" : conn === "cellular" ? dataColor(cellTech) || "--med-blue" : "--t-red"),
+      tile("ssid", "Réseau Wi-Fi", "mdi:wifi", ssid || "Non connecté", ssid ? "--med-down" : null),
+      tile("bssid", "Borne Wi-Fi (BSSID)", "mdi:router-wireless", ok(v("bssid")) && !/not connected/i.test(v("bssid")) ? v("bssid") : "Non connecté", null),
+      sim("sim1"), sim("sim2"),
+    ]));
+
+    // onglet Santé (Apple Santé)
+    const ring = (k, goal, label, icon, c) => {
+      const val = parseFloat(v(k)), g = parseFloat(v(goal));
+      if (!Number.isFinite(val)) return "";
+      const pct = Number.isFinite(g) && g > 0 ? Math.round((val / g) * 100) : null;
+      return tile(k, label, icon, `${num(k)}${pct != null ? ` sur ${num(goal)} · ${pct} %` : ""}`, pct != null && pct >= 100 ? "--med-down" : c);
+    };
+    const pHealth = cfg.show_health === false ? "" : sec("mdi:heart-pulse", "Cœur", grid([
+      tile("heart", "Fréquence cardiaque", "mdi:heart-pulse", num("heart"), Number.isFinite(hr) ? hrColor(hr) : null),
+      tile("heart_rest", "Au repos", "mdi:heart-outline", num("heart_rest")),
+      tile("heart_walk", "Moyenne à la marche", "mdi:walk", num("heart_walk")),
+      tile("hrv", "Variabilité", "mdi:heart-flash", num("hrv")),
+      tile("bp_sys", "Tension (systolique)", "mdi:water-percent", num("bp_sys")),
+      tile("bp_dia", "Tension (diastolique)", "mdi:water-percent", num("bp_dia")),
+    ])) + sec("mdi:sleep", "Sommeil", grid([
+      tile("sleep", "Durée du sommeil", "mdi:sleep", num("sleep", 1), "--pc-violet"),
+      tile("in_bed", "Au lit", "mdi:bed", num("in_bed", 1)),
+      tile("sleep_deep", "Sommeil profond", "mdi:weather-night", num("sleep_deep", 1)),
+      tile("sleep_rem", "Sommeil paradoxal", "mdi:eye-outline", num("sleep_rem", 1)),
+      tile("sleep_core", "Sommeil léger", "mdi:weather-night-partly-cloudy", num("sleep_core", 1)),
+      tile("awake", "Éveillé", "mdi:eye", num("awake", 1)),
+    ])) + sec("mdi:fire", "Activité (Santé)", grid([
+      ring("active_energy", "move_goal", "Énergie active", "mdi:fire", "--t-red"),
+      ring("exercise_time", "exercise_goal", "Exercice", "mdi:run", "--med-down"),
+      ring("stand_hours", "stand_goal", "Heures debout", "mdi:human-handsup", "--med-blue"),
+      tile("resting_energy", "Énergie au repos", "mdi:fire-circle", num("resting_energy")),
+      tile("h_steps", "Pas (Santé)", "mdi:shoe-print", num("h_steps")),
+      tile("h_distance", "Marche et course", "mdi:map-marker-path", num("h_distance", 1)),
+      tile("flights", "Étages gravis", "mdi:stairs-up", num("flights")),
+      tile("vo2_max", "VO₂ max", "mdi:lungs", num("vo2_max", 1)),
+    ])) + sec("mdi:human", "Corps et constantes", grid([
+      tile("spo2", "Oxygène dans le sang", "mdi:water-check", num("spo2")),
+      tile("resp_rate", "Fréquence respiratoire", "mdi:lungs", num("resp_rate")),
+      tile("body_temp", "Température", "mdi:thermometer", num("body_temp", 1)),
+      tile("basal_temp", "Température basale", "mdi:thermometer-low", num("basal_temp", 1)),
+      tile("glucose", "Glycémie", "mdi:diabetes", num("glucose", 1)),
+      tile("weight", "Poids", "mdi:scale-bathroom", num("weight", 1)),
+      tile("body_fat", "Masse grasse", "mdi:percent", num("body_fat", 1)),
+      tile("lean_mass", "Masse maigre", "mdi:arm-flex", num("lean_mass", 1)),
+      tile("height", "Taille", "mdi:human-male-height", num("height", 2)),
+      tile("water", "Eau bue", "mdi:cup-water", num("water", 1)),
+    ]));
+
+    // onglet Kiosque et caméra
+    const motionAt = demo ? null : at("camera_motion", "Last Motion");
+    const clients = demo ? null : at("camera_stream", "Clients");
+    const pKiosk = cfg.show_kiosk === false ? "" : sec("mdi:tablet-dashboard", "Mode kiosque", grid([
+      tile("kiosk_mode", "Mode kiosque", "mdi:tablet-dashboard", iosFr(v("kiosk_mode")), v("kiosk_mode") === "on" ? "--med-down" : null),
+      tile("kiosk_screensaver", "Économiseur d'écran", "mdi:monitor-shimmer", iosFr(v("kiosk_screensaver"))),
+      tile("kiosk_brightness", "Luminosité", "mdi:brightness-6", num("kiosk_brightness")),
+      tile("kiosk_volume", "Volume", "mdi:volume-high", num("kiosk_volume")),
+    ])) + sec("mdi:cctv", "Caméra", grid([
+      tile("camera_motion", "Mouvement", v("camera_motion") === "on" ? "mdi:motion-sensor" : "mdi:motion-sensor-off", v("camera_motion") === "on" ? "Détecté" : "Aucun", v("camera_motion") === "on" ? "--pc-warn" : null,
+        motionAt ? `note:Dernier : ${fmtDate(motionAt, true) || motionAt}` : ""),
+      tile("camera_stream", "Flux vidéo", "mdi:video-wireless-outline", iosFr(v("camera_stream")), v("camera_stream") === "streaming" ? "--t-red" : null, clients != null ? `note:${clients} spectateur${Number(clients) > 1 ? "s" : ""}` : ""),
+    ]));
+
+    // onglet Infos
+    const perm = String(v("location_perm") || "").toLowerCase();
+    const permOk = /always/.test(perm);
+    const lu = st("last_update");
+    const total = demo ? "128 Go" : at("storage", "Total");
+    const pInfo = sec("mdi:information-outline", "Appareil", grid([
+      tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
+      tile("location_perm", "Autorisation de localisation", permOk ? "mdi:map-marker-check" : "mdi:map-marker-alert", iosFr(v("location_perm")), permOk ? "--med-down" : "--pc-warn",
+        permOk ? "" : "note:Choisissez « Toujours » dans Réglages iOS › Home Assistant › Position, sinon la position ne se met plus à jour en arrière-plan."),
+      tile("last_update", "Dernière mise à jour", "mdi:update", iosFr(v("last_update")), null, lu?.last_changed ? `note:${ago(Date.parse(lu.last_changed))}` : ""),
+      tile("storage", "Stockage", "mdi:harddisk", num("storage"), null, total ? `note:sur ${total}` : ""),
+      tile("app_version", "Application compagnon", "mdi:cellphone-arrow-down", v("app_version")),
+    ]));
+
+    const panels = [["mdi:cellphone", "iPhone", pPhone], ["mdi:wifi", "Réseau", pNet], ["mdi:heart-pulse", "Santé", pHealth], ["mdi:tablet-dashboard", "Kiosque", pKiosk], ["mdi:information-outline", "Infos", pInfo]]
+      .filter(([, , p]) => p.trim());
+    this._panelIds = panels.map(() => "");
+    if (this._tab >= panels.length) this._tab = 0;
+
+    // en-tête « profil »
+    const radius = Number(cfg.near_radius) > 0 ? Number(cfg.near_radius) : 5;
+    const pres = !pstate || !ok(pstate) ? "" : home ? "home" : Number.isFinite(km) ? (km <= radius ? "near" : "far") : "away";
+    const presTip = { home: "À la maison", near: `À moins de ${radius} km de la maison`, far: `À plus de ${radius} km de la maison`, away: "Pas à la maison" }[pres] || "Présence inconnue";
+    const meta = [
+      has("activity") && ok(act) && act !== "unknown" ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
+      Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
+      Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
+      focusOn ? `<span style="color:var(--pc-violet)"><ha-icon icon="mdi:moon-waning-crescent"></ha-icon>Concentration</span>` : "",
+      charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash"></ha-icon>En charge</span>` : "",
+    ].join("");
+    const icon = (i) => `<ha-icon icon="${i}"></ha-icon>`;
+    const dial = (k, label, inner, c, state, tip = label) => `<div class="tk-dial ${state}"${entA(k)}${col(c)} title="${esc(tip)}"><div>${inner}</div><span>${esc(label)}</span></div>`;
+    const dials = [
+      has("battery") ? dial("battery", "Batterie", `${Number.isFinite(bat) ? Math.round(bat) : "—"}${charging ? `<ha-icon icon="mdi:flash" style="--mdc-icon-size:14px;margin-left:-1px"></ha-icon>` : `<small style="font-size:.62rem">%</small>`}`,
+        lowPower ? "--pc-warn" : LVL[bl], "on", `Batterie ${Number.isFinite(bat) ? Math.round(bat) + " %" : ""}${lowPower ? " · économie d'énergie" : ""}`) : "",
+      has("connection") || has("ssid") ? dial(has("connection") ? "connection" : "ssid", wifiOn ? "Wi-Fi" : "Mobile", wifiOn ? icon("mdi:wifi") : cellTech && conn === "cellular" ? esc(String(cellTech).slice(0, 4)) : icon("mdi:signal-off"),
+        wifiOn ? "--med-down" : conn === "cellular" ? dataColor(cellTech) || "--med-blue" : null, wifiOn || conn === "cellular" ? "on" : "off", wifiOn ? `Wi-Fi : ${ssid || "connecté"}` : conn === "cellular" ? `Mobile ${cellTech || ""}` : "Aucune connexion") : "",
+      has("watch_battery") ? dial("watch_battery", "Montre", `${Number.isFinite(wbat) ? Math.round(wbat) : "—"}<small style="font-size:.62rem">%</small>`, LVL[batLevel(wbat)], "on", `Apple Watch ${Number.isFinite(wbat) ? Math.round(wbat) + " %" : ""}${wchg ? " · en charge" : ""}`) : "",
+      has("location_perm") && !permOk ? dial("location_perm", "Position", icon("mdi:map-marker-alert"), "--pc-warn", "on", "Localisation pas sur « Toujours »") : "",
+    ].join("");
+
+    const html = `
+      <div class="tk-hero ${pres}">
+        ${cfg.title || demo ? `<div class="tk-top">${esc(cfg.title || "")}${demo ? "<small>Démo</small>" : ""}</div>` : ""}
+        <div class="tk-ring"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`} title="${esc(presTip)}">
+          <svg viewBox="0 0 92 92"><circle class="bg" cx="46" cy="46" r="42"></circle>${pres ? `<circle class="fg" cx="46" cy="46" r="42"></circle>` : ""}</svg>
+          <div class="tk-face">${pic ? `<img src="${esc(pic)}" alt="">` : esc((name || "?").trim().charAt(0).toUpperCase())}</div>
+        </div>
+        <div class="tk-id">
+          <div class="tk-name">${esc(name)}</div>
+          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc(zone || (cfg.person ? "Inconnu" : "Choisissez une personne"))}</div>
+          ${where ? `<div class="tk-addr">${esc(where)}</div>` : ville ? `<div class="tk-addr">${esc(ville)}</div>` : ""}
+          ${meta ? `<div class="tk-meta">${meta}</div>` : ""}
+        </div>
+      </div>
+      ${dials ? `<div class="tk-dials">${dials}</div>` : ""}
+      ${panels.length > 1 ? `<div class="pc-tabs">${panels.map(([i, l], n) => `<button class="pc-tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}</button>`).join("")}</div>` : ""}
+      ${panels.map(([, , p], n) => `<div class="panel${n === this._tab ? " on" : ""}">${p}</div>`).join("")}
+      ${!panels.length && !demo && !Number.isFinite(bat) ? `<div class="empty">${cfg.person ? "<b>Aucun capteur d'iPhone trouvé</b><span>Activez les capteurs dans l'application Home Assistant : Paramètres › Application compagnon › Capteurs.</span>" : "<b>Choisissez une personne</b><span>dans l'éditeur de la carte.</span>"}</div>` : ""}`;
+
+    if (full || !this._card) {
+      this.shadowRoot.innerHTML = `${STYLE}<ha-card></ha-card>`;
+      this._card = this.shadowRoot.querySelector("ha-card");
+      this._card.addEventListener("click", (ev) => this._click(ev));
+    }
+    this._card.className = themeClass(cfg.theme, h);
+    this._card.innerHTML = html;
+  }
+}
+
+const IOS_SCHEMA = [
+  { name: "person", selector: ent("person") },
+  { name: "title", selector: { text: {} } },
+  { name: "name", selector: { text: {} } },
+  { name: "picture", selector: { text: {} } },
+  { name: "heart_rate", selector: ent("sensor") },
+  { name: "near_radius", selector: { number: { min: 0.5, max: 100, step: 0.5, mode: "box", unit_of_measurement: "km" } } },
+  { name: "show_health", selector: { boolean: {} } },
+  { name: "show_kiosk", selector: { boolean: {} } },
+  { name: "theme", selector: { select: { mode: "dropdown", options: THEMES.map(([value, label]) => ({ value, label })) } } },
+  { name: "demo", selector: { boolean: {} } },
+];
+const IOS_LABELS = {
+  person: "Personne", title: "Titre (vide = nom de la personne)", name: "Nom affiché (vide = celui de la personne)",
+  picture: "Photo, adresse d'une image (vide = celle de la personne)", heart_rate: "Fréquence cardiaque (vide = Apple Santé)",
+  near_radius: "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà",
+  show_health: "Onglet Santé (données Apple Santé)", show_kiosk: "Onglet Kiosque (mode kiosque et caméra)",
+  theme: "Couleurs de la carte", demo: "Mode démo : personne et iPhone fictifs, pour les captures d'écran",
+};
+const IOS_DEFAULTS = { title: "", theme: "v2", near_radius: 5, show_health: true, show_kiosk: true, demo: false };
+
+class TrackerIphoneCardEditor extends HTMLElement {
+  setConfig(config) { this._config = { ...config }; this._draw(); }
+  set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; else this._draw(); }
+  _draw() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (s) => IOS_LABELS[s.name] || s.name;
+      this._form.computeHelper = (s) => (s.name === "person" ? "Les capteurs de l'iPhone de cette personne sont trouvés automatiquement." : undefined);
+      this._form.addEventListener("value-changed", (ev) => {
+        const cfg = { ...ev.detail.value };
+        for (const [k, val] of Object.entries(IOS_DEFAULTS)) if (cfg[k] === val || cfg[k] === undefined) delete cfg[k];
+        for (const k of ["name", "picture", "heart_rate"]) if (!cfg[k]) delete cfg[k];
+        this._config = cfg;
+        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
+      });
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.schema = IOS_SCHEMA;
+    this._form.data = { ...IOS_DEFAULTS, ...this._config };
+  }
+}
+
 define("tracker-card", TrackerCard);
 define("tracker-card-editor", TrackerCardEditor);
+define("tracker-iphone-card", TrackerIphoneCard);
+define("tracker-iphone-card-editor", TrackerIphoneCardEditor);
 
 window.customCards = window.customCards || [];
 if (!window.customCards.some((c) => c.type === "tracker-card")) {
@@ -797,6 +1183,15 @@ if (!window.customCards.some((c) => c.type === "tracker-card")) {
     type: "tracker-card",
     name: "Présence et téléphone",
     description: "Présence d'une personne et état de son téléphone : batterie, activité, distance, réseau, notifications, alarme.",
+    preview: true,
+    documentationURL: "https://github.com/Marlboro62/tracker",
+  });
+}
+if (!window.customCards.some((c) => c.type === "tracker-iphone-card")) {
+  window.customCards.push({
+    type: "tracker-iphone-card",
+    name: "Présence et iPhone",
+    description: "Présence d'une personne et tous les capteurs de son iPhone : batterie, Apple Watch, activité, réseau et opérateur, Apple Santé, kiosque et caméra.",
     preview: true,
     documentationURL: "https://github.com/Marlboro62/tracker",
   });

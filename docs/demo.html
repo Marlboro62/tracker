@@ -137,6 +137,11 @@ for (const cfg of [
   document.getElementById("grid").appendChild(el);
   el.hass = hass;
 }
+// carte iPhone en mode démo (iPhone, Apple Watch et Apple Santé fictifs)
+const ios = document.createElement("tracker-iphone-card");
+ios.setConfig({ demo: true, theme });
+document.getElementById("grid").appendChild(ios);
+ios.hass = hass;
 </script>
 </body>
 </html>
