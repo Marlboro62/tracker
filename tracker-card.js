@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.1.1-beta.3";
+const CARD_VERSION = "1.1.1-beta.4";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -554,7 +554,9 @@ class TrackerCard extends HTMLElement {
       if (!Number.isFinite(v)) return null;
       const u = String((demo ? "" : this._st(k)?.attributes?.unit_of_measurement) || UNIT[k] || "");
       if (u === "m" && v >= 1000) return `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km`;
-      return `${v.toLocaleString("fr-FR", { maximumFractionDigits: digits })}${u && u !== "steps" && u !== "floors" ? ` ${u}` : ""}`;
+      // « % available » de l'application iOS (stockage) : en français
+      const uf = /^%\s*available$/i.test(u) ? "% libre" : u;
+      return `${v.toLocaleString("fr-FR", { maximumFractionDigits: digits })}${uf && uf !== "steps" && uf !== "floors" ? ` ${uf}` : ""}`;
     };
     const focusOn = this._v("focus") === "on";
     const focusName = this._v("focus_name");
@@ -627,7 +629,8 @@ class TrackerCard extends HTMLElement {
     const pres = !pstate || !ok(pstate) ? "" : home ? "home" : Number.isFinite(km) ? (km <= radius ? "near" : "far") : "away";
     const presTip = { home: "À la maison", near: `À moins de ${radius} km de la maison`, far: `À plus de ${radius} km de la maison`, away: "Pas à la maison" }[pres] || "Présence inconnue";
     const meta = [
-      has("activity") ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
+      // activité inconnue (iPhone sans mouvement détecté) : rien plutôt que « Inconnue »
+      has("activity") && act !== "unknown" && ok(act) ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
       Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
       charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash" style="color:var(--pc-warn)"></ha-icon>${esc(charger || "En charge")}</span>` : "",
