@@ -86,7 +86,12 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 | `find_phone_script` | Script ou bouton qui fait sonner le téléphone : affiche le bouton **Faire sonner le téléphone** | — |
 | `find_phone_data` | Données passées au script, pour **un seul script commun à plusieurs téléphones** (voir plus bas) | — |
 | `places` | **Lieux** de l'onglet Infos : zones ou capteurs de distance (voir plus bas) ; `false` pour les masquer | toutes les zones |
-| `places_max` | Nombre de lieux affichés au plus, du plus proche au plus lointain | `8` |
+| `places_max` | Nombre de lieux affichés au plus | `8` |
+| `places_sort` | Ordre des lieux : `list` (ordre de `places`) ou `distance` (du plus proche au plus loin). Les zones trouvées seules sont toujours triées par distance | `list` |
+| `places_hide_current` | Masquer la zone où se trouve la personne (elle est déjà dans l'en-tête) | `true` |
+| `places_at_home` | Afficher la section Lieux quand la personne est à la maison | `true` |
+| `approach_distance` | **Près de** / **En approche de** un lieu dans l'en-tête, en mètres du bord de la zone ; `0` pour désactiver | `150` |
+| `show_since` | **Ici depuis** (ou **Parti depuis**) dans l'en-tête | `true` |
 | `travel_times` | **Temps de trajet** de l'onglet Infos : capteurs Waze ou Google (voir plus bas) ; `false` pour les masquer | ceux trouvés |
 | `near_radius` | Rayon « près de la maison » en km : anneau orange jusqu'à cette distance, rouge au-delà | `5` |
 | `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |
@@ -150,7 +155,7 @@ phone:
 
 L'onglet **Infos** affiche la **distance du téléphone à vos lieux** et les **temps de trajet**.
 
-- **Lieux** : par défaut, toutes les zones de Home Assistant (sauf Maison, déjà dans l'en-tête), de la plus proche à la plus lointaine, avec **Sur place** quand le téléphone est dans la zone. Pour choisir les lieux, ou ajouter un capteur de distance (intégration **Proximité**, par exemple) :
+- **Lieux** : par défaut, toutes les zones de Home Assistant (sauf Maison, déjà dans l'en-tête), de la plus proche à la plus lointaine. La zone où se trouve la personne n'est pas répétée (`places_hide_current: false` pour l'afficher avec **Sur place**), et `places_at_home: false` masque la section quand la personne est à la maison. Pour choisir les lieux, **dans l'ordre voulu** : dans l'éditeur visuel, champ **Lieux**, ou en YAML pour ajouter un nom, une icône ou un capteur de distance (intégration **Proximité**, par exemple) :
 
   ```yaml
   places:
@@ -160,6 +165,8 @@ L'onglet **Infos** affiche la **distance du téléphone à vos lieux** et les **
       icon: mdi:dumbbell
     - sensor.ecole_distance        # capteur de distance (m, km ou miles)
   ```
+
+- **En approche** : hors de toute zone, l'en-tête indique **Près de Travail** quand la personne est à moins de `approach_distance` mètres (150 par défaut) du bord d'une zone, et **En approche de Travail** quand elle s'en rapproche. L'en-tête affiche aussi **Ici depuis 2 h 05** (ou **Parti depuis 25 min**), d'après le dernier changement de lieu.
 
 - **Temps de trajet** : les capteurs des intégrations **Waze Travel Time** ou **Google Maps Travel Time** sont trouvés seuls (durée, distance, route). Pour en choisir, et colorer le temps quand il dépasse le trajet habituel (`usual`, en minutes : orange au-delà de 10 %, rouge au-delà de 25 %) :
 
@@ -219,7 +226,7 @@ Seuls les capteurs présents s'affichent ; un onglet vide n'apparaît pas.
 | `title`, `name`, `picture` | Titre, nom affiché, photo | ceux de la personne |
 | `heart_rate` | Capteur de fréquence cardiaque | celui d'Apple Santé |
 | `near_radius` | Rayon « près de la maison », en km | `5` |
-| `places`, `places_max`, `travel_times` | Lieux et temps de trajet de l'onglet Infos, comme la carte Présence et téléphone | toutes les zones, capteurs trouvés |
+| `places`, `places_max`, `places_sort`, `places_hide_current`, `places_at_home`, `approach_distance`, `show_since`, `travel_times` | Lieux, approche, « Ici depuis » et temps de trajet, comme la carte Présence et téléphone | voir plus haut |
 | `show_health` | Onglet Santé | `true` |
 | `show_kiosk` | Onglet Kiosque (mode kiosque et caméra) | `true` |
 | `theme` | Couleurs de la carte | `v2` |

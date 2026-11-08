@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.2.0-beta.3";
+const CARD_VERSION = "1.2.0-beta.4";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -320,6 +320,15 @@ const dataColor = (raw) => {
   return null;
 };
 const hrColor = (b) => b < 60 ? "--med-blue" : b <= 100 ? "--med-down" : b <= 140 ? "--pc-warn" : "--t-red";
+/** Durée écoulée compacte pour « Ici depuis » : « 25 min », « 2 h 05 », « 3 j 4 h ». */
+const since = (ms) => {
+  if (!Number.isFinite(ms)) return "";
+  const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (m < 60) return `${m} min`;
+  if (m < 1440) return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+  const d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60);
+  return hh ? `${d} j ${hh} h` : `${d} j`;
+};
 const haversine = (a, b, c, d) => {
   const R = 6371, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(x));
@@ -636,6 +645,7 @@ class TrackerCard extends HTMLElement {
       // activité inconnue (iPhone sans mouvement détecté) : rien plutôt que « Inconnue »
       has("activity") && act !== "unknown" && ok(act) ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
+      demo ? "" : this._sinceSpan(person, pstate),
       Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
       charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash" style="color:var(--pc-warn)"></ha-icon>${esc(charger || "En charge")}</span>` : "",
     ].join("");
@@ -664,7 +674,7 @@ class TrackerCard extends HTMLElement {
         </div>
         <div class="tk-id">
           <div class="tk-name">${esc(name)}</div>
-          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc(zone || (cfg.person ? "Inconnu" : "Choisissez une personne"))}</div>
+          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? "Inconnu" : "Choisissez une personne")) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
           ${where ? `<div class="tk-addr">${esc(where)}</div>` : ""}
           ${meta ? `<div class="tk-meta">${meta}</div>` : ""}
         </div>
@@ -698,6 +708,42 @@ class TrackerCard extends HTMLElement {
     if (el) this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: el.dataset.entity }, bubbles: true, composed: true }));
   }
 
+  /** Lieu proche quand la personne n'est dans aucune zone : à moins de approach_distance m (150 par défaut) du bord d'une zone.
+   *  « En approche de » si la distance baisse depuis le dernier affichage, sinon « Près de ». */
+  _nearPlace(pstate, src) {
+    const cfg = this._config, st = this._hass?.states || {};
+    const lim = cfg.approach_distance === undefined ? 150 : Number(cfg.approach_distance);
+    if (cfg.demo || !(lim > 0) || pstate !== "not_home") return null;
+    const la = parseFloat(src?.attributes?.latitude), lo = parseFloat(src?.attributes?.longitude);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+    let best = null;
+    for (const [id, z] of Object.entries(st)) {
+      if (!id.startsWith("zone.") || z.attributes?.passive) continue;
+      const zl = parseFloat(z.attributes?.latitude), zo = parseFloat(z.attributes?.longitude);
+      if (!Number.isFinite(zl) || !Number.isFinite(zo)) continue;
+      const edge = haversine(la, lo, zl, zo) * 1000 - (parseFloat(z.attributes?.radius) || 100);
+      if (edge <= lim && (!best || edge < best.edge)) best = { id, edge, name: id === "zone.home" ? "la maison" : z.attributes?.friendly_name || id };
+    }
+    this._edges ||= {};
+    if (!best) { this._edges = {}; return null; }
+    const prev = this._edges[best.id];
+    this._edges = { [best.id]: best.edge };
+    return { ...best, approaching: Number.isFinite(prev) && best.edge < prev - 5 };
+  }
+
+  /** Texte ajouté à la zone de l'en-tête : « · En approche de Travail » ou « · Près de la maison ». */
+  _nearTxt(pstate, src) {
+    const n = this._nearPlace(pstate, src);
+    return n ? ` · ${n.approaching ? "En approche de" : "Près de"} ${n.name}` : "";
+  }
+
+  /** « Ici depuis 2 h 05 » (dans une zone) ou « Parti depuis 25 min » (hors zone), d'après le changement d'état de la personne. */
+  _sinceSpan(person, pstate) {
+    if (this._config.show_since === false || !person?.last_changed || !pstate || !ok(pstate)) return "";
+    const d = since(Date.parse(person.last_changed));
+    return d ? `<span title="Depuis le dernier changement de lieu"><ha-icon icon="mdi:timer-sand"></ha-icon>${pstate === "not_home" ? "Parti depuis" : "Ici depuis"} ${esc(d)}</span>` : "";
+  }
+
   /** Distances aux lieux (zones ou capteurs de distance, option places) et temps de trajet (Waze, option travel_times). */
   _extras(src) {
     const cfg = this._config, h = this._hass;
@@ -709,8 +755,11 @@ class TrackerCard extends HTMLElement {
     const box = (icon, title, tiles) => tiles ? `<div class="pc-sec"><div class="pc-h"><ha-icon icon="${icon}"></ha-icon>${esc(title)}</div><div class="pc-ts">${tiles}</div></div>` : "";
     // lieux : ceux de l'option places, sinon toutes les zones (sauf Maison, déjà dans l'en-tête)
     let places = cfg.places;
-    if (places === false) places = [];
-    else if (!Array.isArray(places)) places = Object.keys(st).filter((e) => e.startsWith("zone.") && e !== "zone.home");
+    const auto = !Array.isArray(places);
+    // à la maison : section Lieux masquée avec places_at_home: false
+    const atHome = h.states[cfg.person]?.state === "home";
+    if (places === false || (atHome && cfg.places_at_home === false)) places = [];
+    else if (auto) places = Object.keys(st).filter((e) => e.startsWith("zone.") && e !== "zone.home");
     const kmOf = (s) => {
       const v = parseFloat(s?.state), u = s?.attributes?.unit_of_measurement;
       return !Number.isFinite(v) ? NaN : u === "m" ? v / 1000 : u === "mi" ? v * 1.609344 : u === "ft" ? v * 0.0003048 : v;
@@ -726,7 +775,11 @@ class TrackerCard extends HTMLElement {
         }
       } else km = kmOf(s);
       return { ...p, s, km, inside, name: p.name || s.attributes?.friendly_name || p.entity, icon: p.icon || s.attributes?.icon || (zone ? "mdi:map-marker-radius" : "mdi:map-marker-distance") };
-    }).filter((p) => Number.isFinite(p.km)).sort((a, b) => a.km - b.km).slice(0, Number(cfg.places_max) || 8);
+    })
+      // zone où se trouve la personne : déjà dans l'en-tête, masquée (places_hide_current: false pour la garder)
+      .filter((p) => Number.isFinite(p.km) && !(p.inside && cfg.places_hide_current !== false))
+      // ordre : celui de la liste places ; par distance pour les zones trouvées seules ou avec places_sort: distance
+      .sort((a, b) => (auto || cfg.places_sort === "distance" ? a.km - b.km : 0)).slice(0, Number(cfg.places_max) || 8);
     const pl = rows.map((p) => t(p.entity, p.name, p.icon, p.inside ? "Sur place" : fmtKm(p.km), p.inside ? "--med-down" : null)).join("");
     // temps de trajet : capteurs de l'option travel_times, sinon ceux de Waze et Google trouvés
     let trips = cfg.travel_times;
@@ -773,6 +826,28 @@ class TrackerCard extends HTMLElement {
 /* ============================================================== éditeur */
 // même éditeur que les autres cartes : formulaire Home Assistant (ha-form)
 const ent = (domain) => ({ entity: { domain } });
+/** Champ places de l'éditeur : liste d'entités à choisir (dans l'ordre voulu), ou YAML s'il contient des noms ou icônes. */
+const placesSchema = (schema, cfg) => {
+  const simple = cfg.places === undefined || (Array.isArray(cfg.places) && cfg.places.every((p) => typeof p === "string"));
+  return schema.map((f) => f.name === "places" && simple ? { name: "places", selector: { entity: { multiple: true, domain: ["zone", "sensor"] } } } : f);
+};
+const PLACE_FIELDS = [
+  { name: "places_hide_current", selector: { boolean: {} } },
+  { name: "places_at_home", selector: { boolean: {} } },
+  { name: "places_sort", selector: { select: { mode: "dropdown", options: [{ value: "list", label: "Dans l'ordre de la liste" }, { value: "distance", label: "Du plus proche au plus loin" }] } } },
+  { name: "places_max", selector: { number: { min: 1, max: 30, mode: "box" } } },
+  { name: "approach_distance", selector: { number: { min: 0, max: 2000, step: 10, mode: "box", unit_of_measurement: "m" } } },
+  { name: "show_since", selector: { boolean: {} } },
+];
+const PLACE_LABELS = {
+  places_hide_current: "Lieux : masquer la zone où se trouve la personne (déjà dans l'en-tête)",
+  places_at_home: "Lieux : afficher la section quand la personne est à la maison",
+  places_sort: "Lieux : ordre d'affichage (les zones trouvées seules sont toujours triées par distance)",
+  places_max: "Lieux : nombre affiché au plus",
+  approach_distance: "« Près de » / « En approche de » un lieu : distance au bord de la zone (0 = désactivé)",
+  show_since: "Afficher « Ici depuis » dans l'en-tête",
+};
+const PLACE_DEFAULTS = { places_hide_current: true, places_at_home: true, places_sort: "list", places_max: 8, approach_distance: 150, show_since: true };
 const SCHEMA = [
   { name: "person", selector: ent("person") },
   { name: "title", selector: { text: {} } },
@@ -781,6 +856,7 @@ const SCHEMA = [
   { name: "find_phone_script", selector: { entity: { domain: ["script", "button", "input_button"] } } },
   { name: "find_phone_data", selector: { object: {} } },
   { name: "places", selector: { object: {} } },
+  ...PLACE_FIELDS,
   { name: "travel_times", selector: { object: {} } },
   { name: "heart_rate", selector: ent("sensor") },
   { name: "near_radius", selector: { number: { min: 0.5, max: 100, step: 0.5, mode: "box", unit_of_measurement: "km" } } },
@@ -801,7 +877,8 @@ const LABELS = {
   picture: "Photo, adresse d'une image (vide = celle de la personne)",
   find_phone_script: "Bouton « Faire sonner le téléphone » : script ou bouton",
   find_phone_data: "Données passées au script (par exemple { device: mobile_app_pixel }), pour un seul script commun à plusieurs téléphones",
-  places: "Lieux (onglet Infos) : liste de zones ou de capteurs de distance ; vide = toutes les zones, false = aucun",
+  places: "Lieux (onglet Infos) : zones ou capteurs de distance, dans l'ordre voulu ; vide = toutes les zones",
+  ...PLACE_LABELS,
   travel_times: "Temps de trajet (onglet Infos) : capteurs Waze ou Google ; vide = ceux trouvés, false = aucun",
   heart_rate: "Fréquence cardiaque (montre)",
   near_radius: "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà",
@@ -812,7 +889,7 @@ const LABELS = {
   demo: "Mode démo : personne et téléphone fictifs, pour les captures d'écran",
   ...Object.fromEntries(PHONE_GROUPS.flatMap(([, f]) => f.map(([k, l]) => [k, l]))),
 };
-const DEFAULTS = { title: "", theme: "v2", near_radius: 5, notifications: true, system_notifications: true, notifications_max: 20, demo: false };
+const DEFAULTS = { title: "", theme: "v2", near_radius: 5, notifications: true, system_notifications: true, notifications_max: 20, demo: false, ...PLACE_DEFAULTS };
 
 class TrackerCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
@@ -841,6 +918,7 @@ class TrackerCardEditor extends HTMLElement {
         // ne garder que ce qui diffère des valeurs par défaut, et seulement les entités du téléphone remplies
         for (const [k, v] of Object.entries(DEFAULTS)) if (cfg[k] === v || cfg[k] === undefined) delete cfg[k];
         for (const k of ["name", "picture", "find_phone_script", "find_phone_data", "heart_rate", "places", "travel_times"]) if (cfg[k] === "" || cfg[k] == null || (typeof cfg[k] === "object" && !Array.isArray(cfg[k]) && !Object.keys(cfg[k]).length)) delete cfg[k];
+        if (Array.isArray(cfg.places) && !cfg.places.length) delete cfg.places; // liste vide = toutes les zones
         const phone = Object.fromEntries(Object.entries(cfg.phone || {}).filter(([, v]) => v));
         if (Object.keys(phone).length) cfg.phone = phone; else delete cfg.phone;
         this._config = cfg;
@@ -850,7 +928,7 @@ class TrackerCardEditor extends HTMLElement {
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.schema = SCHEMA;
+    this._form.schema = placesSchema(SCHEMA, this._config);
     this._form.data = { ...DEFAULTS, ...this._config, phone: { ...(this._config.phone || {}) } };
   }
 }
@@ -1174,6 +1252,7 @@ class TrackerIphoneCard extends TrackerCard {
     const meta = [
       has("activity") && ok(act) && act !== "unknown" ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
+      demo ? "" : this._sinceSpan(person, pstate),
       kmh > 3 ? `<span style="color:var(--med-blue)"><ha-icon icon="mdi:speedometer"></ha-icon>${Math.round(kmh)} km/h</span>` : "",
       Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
       focusOn ? `<span style="color:var(--pc-violet)"><ha-icon icon="mdi:moon-waning-crescent"></ha-icon>Concentration</span>` : "",
@@ -1199,7 +1278,7 @@ class TrackerIphoneCard extends TrackerCard {
         </div>
         <div class="tk-id">
           <div class="tk-name">${esc(name)}</div>
-          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc(zone || (cfg.person ? "Inconnu" : "Choisissez une personne"))}</div>
+          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? "Inconnu" : "Choisissez une personne")) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
           ${where ? `<div class="tk-addr">${esc(where)}</div>` : ville ? `<div class="tk-addr">${esc(ville)}</div>` : ""}
           ${meta ? `<div class="tk-meta">${meta}</div>` : ""}
         </div>
@@ -1227,6 +1306,7 @@ const IOS_SCHEMA = [
   { name: "heart_rate", selector: ent("sensor") },
   { name: "near_radius", selector: { number: { min: 0.5, max: 100, step: 0.5, mode: "box", unit_of_measurement: "km" } } },
   { name: "places", selector: { object: {} } },
+  ...PLACE_FIELDS,
   { name: "travel_times", selector: { object: {} } },
   { name: "show_health", selector: { boolean: {} } },
   { name: "show_kiosk", selector: { boolean: {} } },
@@ -1237,12 +1317,13 @@ const IOS_LABELS = {
   person: "Personne", title: "Titre (vide = nom de la personne)", name: "Nom affiché (vide = celui de la personne)",
   picture: "Photo, adresse d'une image (vide = celle de la personne)", heart_rate: "Fréquence cardiaque (vide = Apple Santé)",
   near_radius: "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà",
-  places: "Lieux (onglet Infos) : liste de zones ou de capteurs de distance ; vide = toutes les zones, false = aucun",
+  places: "Lieux (onglet Infos) : zones ou capteurs de distance, dans l'ordre voulu ; vide = toutes les zones",
+  ...PLACE_LABELS,
   travel_times: "Temps de trajet (onglet Infos) : capteurs Waze ou Google ; vide = ceux trouvés, false = aucun",
   show_health: "Onglet Santé (données Apple Santé)", show_kiosk: "Onglet Kiosque (mode kiosque et caméra)",
   theme: "Couleurs de la carte", demo: "Mode démo : personne et iPhone fictifs, pour les captures d'écran",
 };
-const IOS_DEFAULTS = { title: "", theme: "v2", near_radius: 5, show_health: true, show_kiosk: true, demo: false };
+const IOS_DEFAULTS = { title: "", theme: "v2", near_radius: 5, show_health: true, show_kiosk: true, demo: false, ...PLACE_DEFAULTS };
 
 class TrackerIphoneCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
@@ -1257,13 +1338,14 @@ class TrackerIphoneCardEditor extends HTMLElement {
         const cfg = { ...ev.detail.value };
         for (const [k, val] of Object.entries(IOS_DEFAULTS)) if (cfg[k] === val || cfg[k] === undefined) delete cfg[k];
         for (const k of ["name", "picture", "heart_rate", "places", "travel_times"]) if (cfg[k] === "" || cfg[k] == null || (typeof cfg[k] === "object" && !Array.isArray(cfg[k]) && !Object.keys(cfg[k]).length)) delete cfg[k];
+        if (Array.isArray(cfg.places) && !cfg.places.length) delete cfg.places; // liste vide = toutes les zones
         this._config = cfg;
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: cfg }, bubbles: true, composed: true }));
       });
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.schema = IOS_SCHEMA;
+    this._form.schema = placesSchema(IOS_SCHEMA, this._config);
     this._form.data = { ...IOS_DEFAULTS, ...this._config };
   }
 }
