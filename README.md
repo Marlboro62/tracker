@@ -92,6 +92,8 @@ C'est tout : le suivi de position de la personne mène à son téléphone, et la
 | `places_at_home` | Afficher la section Lieux quand la personne est à la maison | `true` |
 | `approach_distance` | **Près de** / **En approche de** un lieu dans l'en-tête, en mètres du bord de la zone ; `0` pour désactiver | `150` |
 | `show_since` | **Ici depuis** (ou **Parti depuis**) dans l'en-tête | `true` |
+| `collapsed` | Onglets fermés au départ : le détail (Téléphone, Réseau, Infos…) s'ouvre au clic sur un onglet, un second clic le referme | `false` |
+| `address_at_home` | Afficher l'adresse quand la personne est à la maison (`false` : seulement « À la maison ») | `true` |
 | `travel_times` | **Temps de trajet** de l'onglet Infos : capteurs Waze ou Google (voir plus bas) ; `false` pour les masquer | ceux trouvés |
 | `near_radius` | Rayon « près de la maison » en km : anneau orange jusqu'à cette distance, rouge au-delà | `5` |
 | `heart_rate` | Capteur de fréquence cardiaque (montre), affiché à côté de l'activité | — |
@@ -194,7 +196,7 @@ Dans le script, la valeur se lit avec `{{ telephone }}`, par exemple `action: no
 
 ### Interactions
 
-- **Onglets** Téléphone, Réseau, Notifications, Infos (sur une carte étroite, les onglets inactifs n'affichent que leur icône).
+- **Onglets** Téléphone, Réseau, Notifications, Infos (sur une carte étroite, les onglets inactifs n'affichent que leur icône). Avec `collapsed: true`, ils sont fermés au départ : un clic ouvre le détail, un second clic sur le même onglet le referme.
 - **Clic sur une tuile**, la batterie ou la photo : ouvre la fenêtre de détails de Home Assistant (historique, attributs).
 - **Clic sur la tuile Notifications ou Dernier SMS** : ouvre l'onglet Notifications.
 - **Faire sonner le téléphone** : lance le script (ou appuie sur le bouton) indiqué dans `find_phone_script`.
@@ -227,6 +229,7 @@ Seuls les capteurs présents s'affichent ; un onglet vide n'apparaît pas.
 | `heart_rate` | Capteur de fréquence cardiaque | celui d'Apple Santé |
 | `near_radius` | Rayon « près de la maison », en km | `5` |
 | `places`, `places_max`, `places_sort`, `places_hide_current`, `places_at_home`, `approach_distance`, `show_since`, `travel_times` | Lieux, approche, « Ici depuis » et temps de trajet, comme la carte Présence et téléphone | voir plus haut |
+| `collapsed`, `address_at_home` | Onglets fermés au départ, adresse masquée à la maison, comme la carte Présence et téléphone | `false`, `true` |
 | `show_health` | Onglet Santé | `true` |
 | `show_kiosk` | Onglet Kiosque (mode kiosque et caméra) | `true` |
 | `theme` | Couleurs de la carte | `v2` |
