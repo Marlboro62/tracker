@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.3.0-beta.1";
+const CARD_VERSION = "1.3.0";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
