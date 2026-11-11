@@ -12,7 +12,7 @@
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
  */
 
-const CARD_VERSION = "1.2.0";
+const CARD_VERSION = "1.3.0-beta.1";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -370,7 +370,8 @@ class TrackerCard extends HTMLElement {
   setConfig(config) {
     const c = config || {};
     this._config = { ...c, theme: c.theme || "v2", title: c.title || "", phone: { ...(c.phone || {}) } };
-    this._ents = null; this._fp = null; this._tab = 0;
+    // collapsed : onglets fermés au départ, le détail s'ouvre au clic
+    this._ents = null; this._fp = null; this._tab = c.collapsed ? -1 : 0;
     if (this._hass) this._render(true);
   }
 
@@ -634,7 +635,7 @@ class TrackerCard extends HTMLElement {
     const panels = [["mdi:cellphone", "Téléphone", p0], ["mdi:wifi", "Réseau", p1], ["mdi:bell-outline", "Notifications", p3, "notifs"], ["mdi:information-outline", "Infos", p2]]
       .filter(([, , p]) => p.trim());
     this._panelIds = panels.map((x) => x[3] || "");
-    if (this._tab >= panels.length) this._tab = 0;
+    if (this._tab >= panels.length || (this._tab < 0 && (!cfg.collapsed || panels.length < 2))) this._tab = cfg.collapsed && panels.length > 1 ? -1 : 0;
 
     // en-tête « profil » : photo dans l'anneau de batterie, zone, adresse, activité et distance
     // anneau de présence : vert à la maison, orange jusqu'à near_radius km (5 par défaut), rouge au-delà
@@ -675,7 +676,7 @@ class TrackerCard extends HTMLElement {
         <div class="tk-id">
           <div class="tk-name">${esc(name)}</div>
           <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? "Inconnu" : "Choisissez une personne")) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
-          ${where ? `<div class="tk-addr">${esc(where)}</div>` : ""}
+          ${where && !(home && cfg.address_at_home === false) ? `<div class="tk-addr">${esc(where)}</div>` : ""}
           ${meta ? `<div class="tk-meta">${meta}</div>` : ""}
         </div>
       </div>
@@ -696,8 +697,9 @@ class TrackerCard extends HTMLElement {
   _click(ev) {
     const tab = ev.target.closest(".pc-tab");
     if (tab) {
-      this._tab = +tab.dataset.tab;
-      this._card.querySelectorAll(".pc-tab").forEach((t) => t.classList.toggle("on", t === tab));
+      // onglets repliables (collapsed) : un clic sur l'onglet ouvert le referme
+      this._tab = this._config.collapsed && +tab.dataset.tab === this._tab ? -1 : +tab.dataset.tab;
+      this._card.querySelectorAll(".pc-tab").forEach((t) => t.classList.toggle("on", +t.dataset.tab === this._tab));
       this._card.querySelectorAll(".panel").forEach((p, n) => p.classList.toggle("on", n === this._tab));
       return;
     }
@@ -847,6 +849,15 @@ const PLACE_LABELS = {
   approach_distance: "« Près de » / « En approche de » un lieu : distance au bord de la zone (0 = désactivé)",
   show_since: "Afficher « Ici depuis » dans l'en-tête",
 };
+const DISPLAY_FIELDS = [
+  { name: "collapsed", selector: { boolean: {} } },
+  { name: "address_at_home", selector: { boolean: {} } },
+];
+const DISPLAY_LABELS = {
+  collapsed: "Onglets fermés au départ : le détail (Téléphone, Réseau, Infos…) s'affiche au clic sur un onglet, un second clic le referme",
+  address_at_home: "Afficher l'adresse quand la personne est à la maison",
+};
+const DISPLAY_DEFAULTS = { collapsed: false, address_at_home: true };
 const PLACE_DEFAULTS = { places_hide_current: true, places_at_home: true, places_sort: "list", places_max: 8, approach_distance: 150, show_since: true };
 const SCHEMA = [
   { name: "person", selector: ent("person") },
@@ -860,6 +871,7 @@ const SCHEMA = [
   { name: "travel_times", selector: { object: {} } },
   { name: "heart_rate", selector: ent("sensor") },
   { name: "near_radius", selector: { number: { min: 0.5, max: 100, step: 0.5, mode: "box", unit_of_measurement: "km" } } },
+  ...DISPLAY_FIELDS,
   { name: "notifications", selector: { boolean: {} } },
   { name: "system_notifications", selector: { boolean: {} } },
   { name: "notifications_max", selector: { number: { min: 1, max: 50, mode: "box" } } },
@@ -879,6 +891,7 @@ const LABELS = {
   find_phone_data: "Données passées au script (par exemple { device: mobile_app_pixel }), pour un seul script commun à plusieurs téléphones",
   places: "Lieux (onglet Infos) : zones ou capteurs de distance, dans l'ordre voulu ; vide = toutes les zones",
   ...PLACE_LABELS,
+  ...DISPLAY_LABELS,
   travel_times: "Temps de trajet (onglet Infos) : capteurs Waze ou Google ; vide = ceux trouvés, false = aucun",
   heart_rate: "Fréquence cardiaque (montre)",
   near_radius: "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà",
@@ -889,7 +902,7 @@ const LABELS = {
   demo: "Mode démo : personne et téléphone fictifs, pour les captures d'écran",
   ...Object.fromEntries(PHONE_GROUPS.flatMap(([, f]) => f.map(([k, l]) => [k, l]))),
 };
-const DEFAULTS = { title: "", theme: "v2", near_radius: 5, notifications: true, system_notifications: true, notifications_max: 20, demo: false, ...PLACE_DEFAULTS };
+const DEFAULTS = { title: "", theme: "v2", near_radius: 5, notifications: true, system_notifications: true, notifications_max: 20, demo: false, ...PLACE_DEFAULTS, ...DISPLAY_DEFAULTS };
 
 class TrackerCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
@@ -1243,7 +1256,7 @@ class TrackerIphoneCard extends TrackerCard {
     const panels = [["mdi:cellphone", "iPhone", pPhone], ["mdi:wifi", "Réseau", pNet], ["mdi:heart-pulse", "Santé", pHealth], ["mdi:tablet-dashboard", "Kiosque", pKiosk], ["mdi:information-outline", "Infos", pInfo]]
       .filter(([, , p]) => p.trim());
     this._panelIds = panels.map(() => "");
-    if (this._tab >= panels.length) this._tab = 0;
+    if (this._tab >= panels.length || (this._tab < 0 && (!cfg.collapsed || panels.length < 2))) this._tab = cfg.collapsed && panels.length > 1 ? -1 : 0;
 
     // en-tête « profil »
     const radius = Number(cfg.near_radius) > 0 ? Number(cfg.near_radius) : 5;
@@ -1279,7 +1292,7 @@ class TrackerIphoneCard extends TrackerCard {
         <div class="tk-id">
           <div class="tk-name">${esc(name)}</div>
           <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? "Inconnu" : "Choisissez une personne")) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
-          ${where ? `<div class="tk-addr">${esc(where)}</div>` : ville ? `<div class="tk-addr">${esc(ville)}</div>` : ""}
+          ${home && cfg.address_at_home === false ? "" : where ? `<div class="tk-addr">${esc(where)}</div>` : ville ? `<div class="tk-addr">${esc(ville)}</div>` : ""}
           ${meta ? `<div class="tk-meta">${meta}</div>` : ""}
         </div>
       </div>
@@ -1308,6 +1321,7 @@ const IOS_SCHEMA = [
   { name: "places", selector: { object: {} } },
   ...PLACE_FIELDS,
   { name: "travel_times", selector: { object: {} } },
+  ...DISPLAY_FIELDS,
   { name: "show_health", selector: { boolean: {} } },
   { name: "show_kiosk", selector: { boolean: {} } },
   { name: "theme", selector: { select: { mode: "dropdown", options: THEMES.map(([value, label]) => ({ value, label })) } } },
@@ -1320,10 +1334,11 @@ const IOS_LABELS = {
   places: "Lieux (onglet Infos) : zones ou capteurs de distance, dans l'ordre voulu ; vide = toutes les zones",
   ...PLACE_LABELS,
   travel_times: "Temps de trajet (onglet Infos) : capteurs Waze ou Google ; vide = ceux trouvés, false = aucun",
+  ...DISPLAY_LABELS,
   show_health: "Onglet Santé (données Apple Santé)", show_kiosk: "Onglet Kiosque (mode kiosque et caméra)",
   theme: "Couleurs de la carte", demo: "Mode démo : personne et iPhone fictifs, pour les captures d'écran",
 };
-const IOS_DEFAULTS = { title: "", theme: "v2", near_radius: 5, show_health: true, show_kiosk: true, demo: false, ...PLACE_DEFAULTS };
+const IOS_DEFAULTS = { title: "", theme: "v2", near_radius: 5, show_health: true, show_kiosk: true, demo: false, ...PLACE_DEFAULTS, ...DISPLAY_DEFAULTS };
 
 class TrackerIphoneCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
