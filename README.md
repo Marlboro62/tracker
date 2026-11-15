@@ -32,7 +32,7 @@
 [![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz/)
 [![Release](https://img.shields.io/github/v/release/Marlboro62/tracker)](https://github.com/Marlboro62/tracker/releases)
 
-Une carte Lovelace pour Home Assistant qui montre **où est une personne** et **l'état de son téléphone** : batterie et charge, activité, distance de la maison, sonnerie, notifications (avec leur contenu et le dernier SMS), VPN WireGuard, prochaine alarme, Wi-Fi, réseau mobile, Bluetooth, carte SIM, GPS, adresse, IP publique. Tout est **en français**.
+Une carte Lovelace pour Home Assistant qui montre **où est une personne** et **l'état de son téléphone** (application compagnon de Home Assistant ou Life360) : batterie et charge, activité, distance de la maison, sonnerie, notifications (avec leur contenu et le dernier SMS), VPN WireGuard, prochaine alarme, Wi-Fi, réseau mobile, Bluetooth, carte SIM, GPS, adresse, IP publique. Tout est **en français**.
 
 Il suffit de choisir la personne : la carte **trouve toute seule les capteurs de son téléphone** (application compagnon Home Assistant, Android ou iPhone). Aucun YAML à écrire, aucune intégration en plus.
 
@@ -152,6 +152,26 @@ find_phone_script: script.faire_sonner_camille
 phone:
   wifi_ssid: sensor.pixel_camille_wifi_connection
 ```
+
+### Life360
+
+Avec l'intégration [Life360](https://github.com/pnbruckner/ha-life360), choisissez la personne qui utilise le suivi Life360, ou directement le suivi :
+
+```yaml
+type: custom:tracker-card
+person: device_tracker.life360_camille   # ou person.camille
+```
+
+La carte lit les attributs du suivi Life360 quand aucun capteur du téléphone ne donne la même information :
+
+- **batterie** (ou le capteur `sensor.life360_…_battery_level`) et **charge** ;
+- **adresse** (rue et ville dans l'onglet Réseau) ;
+- **Wi-Fi** activé ou non ;
+- **en voiture** : état « Driving » affiché « En voiture », avec la **vitesse** ;
+- **« Ici depuis »** d'après l'heure d'arrivée donnée par Life360 ;
+- **dernière position** reçue de Life360 (onglet Infos).
+
+Le nom affiché retire le préfixe « Life360 ». Distance, lieux et temps de trajet fonctionnent comme avec l'application compagnon. Si la personne a aussi l'application compagnon, ses capteurs passent avant ceux de Life360.
 
 ### Lieux et temps de trajet
 
