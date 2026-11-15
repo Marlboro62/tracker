@@ -10,9 +10,11 @@
  *   person: person.prenom            # le reste est détecté à partir de la personne
  *
  * Toutes les entités du téléphone peuvent être indiquées à la main sous « phone: ».
+ * Life360 : person peut aussi être un device_tracker.life360_… ; ses attributs (batterie, adresse, Wi-Fi,
+ * en voiture, vitesse…) remplacent les capteurs du téléphone absents.
  */
 
-const CARD_VERSION = "1.3.0";
+const CARD_VERSION = "1.4.0-beta.1";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -180,6 +182,16 @@ const CHARGER = {
 };
 
 /* Entités du téléphone détectées d'après la fin de leur identifiant (application compagnon Android et iOS). */
+/** Life360 (pnbruckner/ha-life360) : données du téléphone lues dans les attributs du traceur. */
+const L360 = {
+  battery: (a) => a.battery_level,
+  charging: (a) => (a.battery_charging == null ? null : a.battery_charging ? "on" : "off"),
+  wifi_state: (a) => (a.wifi_on == null ? null : a.wifi_on ? "on" : "off"),
+  geocoded: (a) => a.address || a.place,
+  activity: (a) => (a.driving ? "in_vehicle" : null),
+};
+const isL360 = (id, h) => !!id && (h?.entities?.[id]?.platform === "life360" || ("at_loc_since" in (h?.states?.[id]?.attributes || {}) && "driving" in (h?.states?.[id]?.attributes || {})));
+
 const PHONE_KEYS = {
   battery: [/_battery_level$/],
   charging: [/_is_charging$/],
@@ -384,7 +396,8 @@ class TrackerCard extends HTMLElement {
     const trips = Array.isArray(tt) ? tt.map((x) => (typeof x === "string" ? x : x?.entity)).filter(Boolean)
       : tt === false ? [] : Object.keys(h.states).filter((e) => e.startsWith("sensor.") && /^(waze_travel_time|google_travel_time)$/.test(reg[e]?.platform || ""));
     const fp = `${this._config.theme}|${h.themes?.darkMode}|` + (this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents), ...trips]
-      .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") + (e === ents.notif_count ? JSON.stringify(s.attributes) : "") : "x"; }).join(";"));
+      .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") + (e === ents.notif_count ? JSON.stringify(s.attributes) : "")
+        + (e === ents.l360 ? ["battery_level", "battery_charging", "address", "place", "driving", "speed", "wifi_on", "last_seen", "at_loc_since"].map((k) => s.attributes?.[k]).join(",") : "") : "x"; }).join(";"));
     if (fp === this._fp) return;
     this._fp = fp;
     this._render(!this.shadowRoot.querySelector("ha-card"));
@@ -395,11 +408,12 @@ class TrackerCard extends HTMLElement {
     if (this._ents && this._entsFor === this._hass?.states) return this._ents;
     const h = this._hass, cfg = this._config, out = {};
     const person = h?.states?.[cfg.person];
-    const trackers = [].concat(person?.attributes?.device_trackers || []);
+    // personne, ou traceur choisi directement (Life360 : device_tracker.life360_…)
+    const trackers = String(cfg.person || "").startsWith("device_tracker.") ? [cfg.person] : [].concat(person?.attributes?.device_trackers || []);
     const reg = h?.entities || {};
     // plusieurs appareils possibles (ancien téléphone, tablette…) : d'abord celui qui donne la position
     // actuelle de la personne (attribut « source »), puis les autres appareils de l'application compagnon
-    const mobiles = trackers.filter((t) => reg[t]?.platform === "mobile_app");
+    const mobiles = trackers.filter((t) => reg[t]?.platform === "mobile_app" || isL360(t, h));
     const src = person?.attributes?.source;
     const order = [...new Set([cfg.phone.tracker, trackers.includes(src) ? src : null, ...mobiles, ...trackers].filter(Boolean))];
     const tracker = order[0];
@@ -443,6 +457,17 @@ class TrackerCard extends HTMLElement {
       // une entité qui donne une valeur passe avant une entité indisponible d'un autre appareil
       if (hit || first) out[key] = hit || first;
     }
+    // Life360 : les données absentes des capteurs viennent des attributs du traceur
+    this._l360 = null;
+    const l3 = order.find((t) => isL360(t, h) && sts[t]);
+    if (l3) {
+      this._l360 = { id: l3, keys: new Set() };
+      out.l360 = l3;
+      for (const [k, f] of Object.entries(L360)) {
+        if (cfg.phone[k] || (out[k] && live(out[k]))) continue;
+        if (f(sts[l3].attributes || {}) != null || k === "activity") { out[k] = l3; this._l360.keys.add(k); }
+      }
+    }
     // distance, rue et ville : calculées par la carte ; une entité indiquée sous « phone: » reste prioritaire
     for (const k of ["proximity", "rue", "ville"]) if (cfg.phone[k]) out[k] = cfg.phone[k];
     // VPN WireGuard (intégration wgdashboard_monitor) : le peer dont le nom correspond au téléphone ou à la personne
@@ -472,6 +497,7 @@ class TrackerCard extends HTMLElement {
     if (this._config.demo) return DEMO[key] ?? null;
     const id = this._entities()[key];
     const s = id && this._hass.states[id];
+    if (s && this._l360?.keys.has(key)) { const v = L360[key](s.attributes || {}); return v == null || !ok(v) ? null : String(v); }
     return s && ok(s.state) ? s.state : null;
   }
   _st(key) { if (this._config.demo) return null; const id = this._entities()[key]; return id ? this._hass.states[id] : null; }
@@ -480,11 +506,12 @@ class TrackerCard extends HTMLElement {
     if (!this._hass || !this._config) return;
     const cfg = this._config, h = this._hass, demo = !!cfg.demo;
     const person = demo ? null : h.states[cfg.person];
-    const name = demo ? DEMO.person.name : cfg.name || person?.attributes?.friendly_name || (cfg.person ? cfg.person.split(".")[1] : "Personne");
+    const name = demo ? DEMO.person.name : cfg.name || String(person?.attributes?.friendly_name || "").replace(/^Life360\s+/i, "") || (cfg.person ? cfg.person.split(".")[1] : "Personne");
     const pic = demo ? "" : cfg.picture || person?.attributes?.entity_picture || "";
-    const pstate = demo ? DEMO.person.state : person?.state;
+    // Life360 : état « driving » (en voiture) = hors de toute zone
+    const pstate = demo ? DEMO.person.state : person?.state === "driving" ? "not_home" : person?.state;
     const home = pstate === "home";
-    const zone = !pstate || !ok(pstate) ? null : home ? "À la maison" : pstate === "not_home" ? "Pas à la maison" : pstate;
+    const zone = !pstate || !ok(pstate) ? null : home ? "À la maison" : pstate === "not_home" ? (person?.state === "driving" ? "En voiture" : "Pas à la maison") : pstate;
 
     // adresse : capteurs rue/ville, sinon attributs de l'adresse géocodée
     const geoSt = this._st("geocoded");
@@ -617,6 +644,7 @@ class TrackerCard extends HTMLElement {
       tile("storage", "Stockage", "mdi:harddisk", num("storage", 0), null),
       tile("app_version", "Application compagnon", "mdi:cellphone-arrow-down", this._v("app_version"), null),
       tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
+      this._l360 && this._st("l360")?.attributes?.last_seen ? `<div class="pc-t wide"${ent("l360")}><div class="pc-tt"><ha-icon icon="mdi:map-clock-outline"></ha-icon>Dernière position Life360</div><b>${esc(fmtDate(this._st("l360").attributes.last_seen, true) || "—")}</b></div>` : "",
     ].join("");
     const p2 = this._extras(this._st("tracker") || person) + sec("mdi:information-outline", "Appareil", infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
 
@@ -647,6 +675,7 @@ class TrackerCard extends HTMLElement {
       has("activity") && act !== "unknown" && ok(act) ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
       demo ? "" : this._sinceSpan(person, pstate),
+      this._l360Speed(),
       Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
       charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash" style="color:var(--pc-warn)"></ha-icon>${esc(charger || "En charge")}</span>` : "",
     ].join("");
@@ -742,8 +771,17 @@ class TrackerCard extends HTMLElement {
   /** « Ici depuis 2 h 05 » (dans une zone) ou « Parti depuis 25 min » (hors zone), d'après le changement d'état de la personne. */
   _sinceSpan(person, pstate) {
     if (this._config.show_since === false || !person?.last_changed || !pstate || !ok(pstate)) return "";
-    const d = since(Date.parse(person.last_changed));
+    // Life360 : « au lieu depuis » donné par Life360, plus juste que le dernier changement d'état
+    const l3 = this._l360 && this._hass?.states?.[this._l360.id]?.attributes?.at_loc_since;
+    const d = since(Date.parse(l3 || person.last_changed));
     return d ? `<span title="Depuis le dernier changement de lieu"><ha-icon icon="mdi:timer-sand"></ha-icon>${pstate === "not_home" ? "Parti depuis" : "Ici depuis"} ${esc(d)}</span>` : "";
+  }
+
+  /** Life360 : vitesse (en km/h si Home Assistant est en métrique) quand la personne se déplace. */
+  _l360Speed() {
+    const a = this._l360 && this._hass?.states?.[this._l360.id]?.attributes;
+    const v = parseFloat(a?.speed);
+    return Number.isFinite(v) && v > 3 ? `<span style="color:var(--med-blue)"><ha-icon icon="mdi:speedometer"></ha-icon>${Math.round(v)} ${this._hass.config?.unit_system?.length === "mi" ? "mph" : "km/h"}</span>` : "";
   }
 
   /** Distances aux lieux (zones ou capteurs de distance, option places) et temps de trajet (Waze, option travel_times). */
@@ -860,7 +898,7 @@ const DISPLAY_LABELS = {
 const DISPLAY_DEFAULTS = { collapsed: false, address_at_home: true };
 const PLACE_DEFAULTS = { places_hide_current: true, places_at_home: true, places_sort: "list", places_max: 8, approach_distance: 150, show_since: true };
 const SCHEMA = [
-  { name: "person", selector: ent("person") },
+  { name: "person", selector: ent(["person", "device_tracker"]) },
   { name: "title", selector: { text: {} } },
   { name: "name", selector: { text: {} } },
   { name: "picture", selector: { text: {} } },
