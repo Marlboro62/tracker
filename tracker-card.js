@@ -14,7 +14,7 @@
  * en voiture, vitesse…) remplacent les capteurs du téléphone absents.
  */
 
-const CARD_VERSION = "1.4.0-beta.1";
+const CARD_VERSION = "1.4.0-beta.2";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -518,7 +518,10 @@ class TrackerCard extends HTMLElement {
     const geo = this._v("geocoded");
     const parts = demo || !geo ? [] : String(geo).split(",").map((x) => x.trim()).filter(Boolean);
     const rue = this._v("rue") || (demo ? null : [attr(geoSt, "Sub Thoroughfare"), attr(geoSt, "Thoroughfare")].filter(Boolean).join(" ") || (parts.length > 1 ? parts[0] : null));
-    const ville = this._v("ville") || (demo ? null : attr(geoSt, "Locality") || (parts.length > 1 ? parts[1].replace(/^\d{4,6}\s+/, "") : null));
+    // Life360 : l'adresse donne parfois la province ou la région à la place de la ville (« …, Quebec ») :
+    // pas de tuile Ville tirée de cette adresse (un capteur ville indiqué sous « phone: » reste affiché)
+    const l3geo = !demo && !!this._l360?.keys.has("geocoded");
+    const ville = this._v("ville") || (demo || l3geo ? null : attr(geoSt, "Locality") || (parts.length > 1 ? parts[1].replace(/^\d{4,6}\s+/, "") : null));
     const where = geo || [rue, ville].filter(Boolean).join(", ");
 
     // distance : capteur proximity, sinon calculée entre le téléphone et la maison

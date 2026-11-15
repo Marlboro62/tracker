@@ -165,7 +165,7 @@ person: device_tracker.life360_camille   # ou person.camille
 La carte lit les attributs du suivi Life360 quand aucun capteur du téléphone ne donne la même information :
 
 - **batterie** (ou le capteur `sensor.life360_…_battery_level`) et **charge** ;
-- **adresse** (rue et ville dans l'onglet Réseau) ;
+- **adresse**, et la rue dans l'onglet Réseau. Pas de tuile Ville : l'adresse Life360 donne parfois la province ou la région à sa place ;
 - **Wi-Fi** activé ou non ;
 - **en voiture** : état « Driving » affiché « En voiture », avec la **vitesse** ;
 - **« Ici depuis »** d'après l'heure d'arrivée donnée par Life360 ;
