@@ -14,7 +14,7 @@
  * en voiture, vitesse…) remplacent les capteurs du téléphone absents.
  */
 
-const CARD_VERSION = "1.4.0-beta.2";
+const CARD_VERSION = "1.4.0";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
