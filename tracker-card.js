@@ -14,12 +14,350 @@
  * en voiture, vitesse…) remplacent les capteurs du téléphone absents.
  */
 
-const CARD_VERSION = "1.4.0";
+const CARD_VERSION = "1.5.0";
 
 const define = (name, cls) => { if (!customElements.get(name)) customElements.define(name, cls); };
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const BAD = new Set(["unavailable", "unknown", "none", "null", ""]);
 const ok = (v) => v != null && !BAD.has(String(v).toLowerCase().trim());
+
+/* ------------------------------------------------------------------ langues */
+// Les textes français sont les clés. tx("texte") renvoie la traduction si la langue de Home Assistant
+// en possède une, sinon le texte français. Pour ajouter une langue : copier le bloc « ru » sous
+// I18N, le renommer (code à deux lettres de la langue de Home Assistant) et traduire les valeurs.
+// Les « {n} », « {d} », « {h} », « {r} » sont remplacés par les valeurs.
+const I18N = {
+  ru: {
+    "à l'instant": "только что",
+    "il y a {n} min": "{n} мин назад",
+    "il y a {n} h": "{n} ч назад",
+    "{d} à {h}": "{d} в {h}",
+    "min": "мин",
+    "h": "ч",
+    "j": "д",
+    "m": "м",
+    "km": "км",
+    "km/h": "км/ч",
+    "mph": "миль/ч",
+    "bpm": "уд/мин",
+    "hPa": "гПа",
+    "ms": "мс",
+    "kcal": "ккал",
+    "L": "л",
+    "/min": "/мин",
+    "o": "Б",
+    "ko": "КБ",
+    "Mo": "МБ",
+    "Go": "ГБ",
+    "To": "ТБ",
+    "Kio": "КиБ",
+    "Mio": "МиБ",
+    "Gio": "ГиБ",
+    "Tio": "ТиБ",
+    "128 Go": "128 ГБ",
+    "% libre": "% свободно",
+    "via": "через",
+    "À la maison": "Дома",
+    "Pas à la maison": "Не дома",
+    "En voiture": "В машине",
+    "Inconnu": "Неизвестно",
+    "Choisissez une personne": "Выберите человека",
+    "Personne": "Человек",
+    "Présence inconnue": "Присутствие неизвестно",
+    "À moins de {r} km de la maison": "Ближе {r} км от дома",
+    "À plus de {r} km de la maison": "Дальше {r} км от дома",
+    "En approche de": "Приближается:",
+    "Près de": "Рядом:",
+    "la maison": "дом",
+    "Ici depuis": "Здесь:",
+    "Parti depuis": "Отсутствует:",
+    "Depuis le dernier changement de lieu": "С последней смены местоположения",
+    "Démo": "Демо",
+    "Immobile": "Без движения",
+    "Marche": "Ходьба",
+    "À pied": "Пешком",
+    "Course": "Бег",
+    "À vélo": "На велосипеде",
+    "Téléphone incliné": "Телефон наклонён",
+    "Inconnue": "Неизвестно",
+    "Normale": "Обычный",
+    "Vibreur": "Вибрация",
+    "Silencieux": "Без звука",
+    "Secteur": "От сети",
+    "Sans fil": "Беспроводная",
+    "Dock": "Док-станция",
+    "En charge": "Заряжается",
+    "en charge": "заряжается",
+    "Pas en charge": "Не заряжается",
+    "Pleine": "Заряжена",
+    "Téléphone": "Телефон",
+    "Réseau": "Сеть",
+    "Notifications": "Уведомления",
+    "Infos": "Инфо",
+    "Santé": "Здоровье",
+    "Kiosque": "Киоск",
+    "Activité du jour": "Активность за день",
+    "Connexions": "Подключения",
+    "Connexion": "Подключение",
+    "Position": "Позиция",
+    "Appareil": "Устройство",
+    "Lieux": "Места",
+    "Temps de trajet": "Время в пути",
+    "Cœur": "Сердце",
+    "Sommeil": "Сон",
+    "Activité (Santé)": "Активность (Здоровье)",
+    "Corps et constantes": "Тело и показатели",
+    "Mode kiosque": "Режим киоска",
+    "Caméra": "Камера",
+    "Position GPS": "GPS-позиция",
+    "Applications": "Приложения",
+    "Système": "Система",
+    "Sur place": "На месте",
+    "Concentration": "Фокусирование",
+    "Activée": "Включено",
+    "Désactivée": "Выключено",
+    "Activé": "Включено",
+    "Désactivé": "Выключено",
+    "Sonnerie": "Звонок",
+    "Prochaine alarme": "Следующий будильник",
+    "Aucune": "Нет",
+    "Dernier SMS": "Последнее SMS",
+    "Faire sonner le téléphone": "Позвонить на телефон",
+    "Pas": "Шаги",
+    "Distance": "Расстояние",
+    "Étages montés": "Этажей вверх",
+    "Pression": "Давление",
+    "Réseau mobile": "Мобильная сеть",
+    "Mobile": "Моб. сеть",
+    "Carte SIM": "SIM-карта",
+    "Haute précision": "Высокая точность",
+    "Standard": "Стандартно",
+    "Partage de connexion": "Режим модема",
+    "Rue": "Улица",
+    "Ville": "Город",
+    "IP publique": "Публичный IP",
+    "Dernier redémarrage": "Последняя перезагрузка",
+    "Stockage": "Память",
+    "Application compagnon": "Приложение-компаньон",
+    "Adresse": "Адрес",
+    "Dernière position Life360": "Последняя позиция Life360",
+    "Connecté": "Подключено",
+    "Déconnecté": "Отключено",
+    "Batterie": "Батарея",
+    "Montre": "Часы",
+    "Partage": "Раздача",
+    "Notifs": "Увед.",
+    "Alarme": "Будильник",
+    "Aucun capteur de téléphone trouvé": "Датчики телефона не найдены",
+    "Indiquez-les dans l'éditeur de la carte (section Téléphone).": "Укажите их в редакторе карточки (раздел «Телефон»).",
+    "dans l'éditeur de la carte.": "в редакторе карточки.",
+    "Aucun capteur d'iPhone trouvé": "Датчики iPhone не найдены",
+    "Activez les capteurs dans l'application Home Assistant : Paramètres › Application compagnon › Capteurs.": "Включите датчики в приложении Home Assistant: Настройки › Приложение-компаньон › Датчики.",
+    "Wi-Fi désactivé": "Wi-Fi выключен",
+    "connecté": "подключено",
+    "Bluetooth activé": "Bluetooth включён",
+    "Bluetooth désactivé": "Bluetooth выключен",
+    "Localisation pas sur « Toujours »": "Геолокация не в режиме «Всегда»",
+    " · en charge": " · заряжается",
+    " · économie d'énergie": " · энергосбережение",
+    "Aucune connexion": "Нет подключения",
+    "Non connecté": "Не подключено",
+    "Activité": "Активность",
+    "Allure moyenne": "Средний темп",
+    "Étages descendus": "Этажей вниз",
+    "Batterie de la montre": "Батарея часов",
+    "Charge de la montre": "Зарядка часов",
+    "Borne Wi-Fi (BSSID)": "Точка доступа (BSSID)",
+    "Réseau Wi-Fi": "Сеть Wi-Fi",
+    "confiance": "достоверность",
+    "élevée": "высокая",
+    "moyenne": "средняя",
+    "faible": "низкая",
+    "Appels VoIP": "VoIP-звонки",
+    "autorisés": "разрешены",
+    "non autorisés": "запрещены",
+    "sur": "из",
+    "Fréquence cardiaque": "Пульс",
+    "Au repos": "В покое",
+    "Moyenne à la marche": "Средний при ходьбе",
+    "Variabilité": "Вариабельность",
+    "Tension (systolique)": "Давление (систолическое)",
+    "Tension (diastolique)": "Давление (диастолическое)",
+    "Durée du sommeil": "Длительность сна",
+    "Au lit": "В постели",
+    "Sommeil profond": "Глубокий сон",
+    "Sommeil paradoxal": "REM-сон",
+    "Sommeil léger": "Лёгкий сон",
+    "Éveillé": "Бодрствование",
+    "Énergie active": "Активная энергия",
+    "Exercice": "Упражнения",
+    "Heures debout": "Часы стоя",
+    "Énergie au repos": "Энергия в покое",
+    "Pas (Santé)": "Шаги (Здоровье)",
+    "Marche et course": "Ходьба и бег",
+    "Étages gravis": "Этажей пройдено",
+    "Oxygène dans le sang": "Кислород в крови",
+    "Fréquence respiratoire": "Частота дыхания",
+    "Température": "Температура",
+    "Température basale": "Базальная температура",
+    "Glycémie": "Глюкоза",
+    "Poids": "Вес",
+    "Masse grasse": "Жировая масса",
+    "Masse maigre": "Безжировая масса",
+    "Taille": "Рост",
+    "Eau bue": "Выпито воды",
+    "Économiseur d'écran": "Заставка",
+    "Luminosité": "Яркость",
+    "Volume": "Громкость",
+    "Mouvement": "Движение",
+    "Détecté": "Обнаружено",
+    "Aucun": "Нет",
+    "Flux vidéo": "Видеопоток",
+    "Dernier :": "Последнее:",
+    "Autorisation de localisation": "Разрешение геолокации",
+    "Dernière mise à jour": "Последнее обновление",
+    "note:Choisissez « Toujours » dans Réglages iOS › Home Assistant › Position, sinon la position ne se met plus à jour en arrière-plan.": "note:Выберите «Всегда» в Настройки iOS › Home Assistant › Геопозиция, иначе позиция перестанет обновляться в фоновом режиме.",
+    "Vitesse": "Скорость",
+    "Direction": "Направление",
+    "Altitude": "Высота",
+    "Précision GPS": "Точность GPS",
+    "Étage": "Этаж",
+    "nord": "север",
+    "nord-est": "северо-восток",
+    "est": "восток",
+    "sud-est": "юго-восток",
+    "sud": "юг",
+    "sud-ouest": "юго-запад",
+    "ouest": "запад",
+    "nord-ouest": "северо-запад",
+    "Coordonnées": "Координаты",
+    "Non envoyées": "Не отправляются",
+    "L'application n'envoie que le nom de la zone. Pour la distance et la position GPS : Paramètres › Application compagnon › serveur › Position envoyée › Exacte.": "Приложение отправляет только название зоны. Для расстояния и GPS-позиции: Настройки › Приложение-компаньон › сервер › Отправляемая позиция › Точная.",
+    "Technologie inconnue": "Неизвестная технология",
+    "Toujours": "Всегда",
+    "Pendant l'utilisation": "Во время использования",
+    "Jamais": "Никогда",
+    "Refusée": "Отказано",
+    "Restreinte": "Ограничено",
+    "Pas encore choisie": "Ещё не выбрано",
+    "Manuelle": "Вручную",
+    "Ouverture de l'application": "Открытие приложения",
+    "Périodique": "Периодически",
+    "Changement de position important": "Существенное изменение позиции",
+    "Entrée dans une zone": "Вход в зону",
+    "Sortie d'une zone": "Выход из зоны",
+    "Notification push": "Push-уведомление",
+    "En arrière-plan": "Фоновое обновление",
+    "Balise iBeacon": "Маяк iBeacon",
+    "Enregistrement": "Регистрация",
+    "Signal de l'application": "Сигнал приложения",
+    "Diffusion en cours": "Идёт трансляция",
+    "En attente": "Ожидание",
+    "Messages": "Сообщения",
+    "Agenda": "Календарь",
+    "Horloge": "Часы",
+    "Système Android": "Система Android",
+    "Paramètres": "Настройки",
+    "Téléphonie": "Телефония",
+    "Téléchargements": "Загрузки",
+    "Sécurité": "Безопасность",
+    "Services Google": "Сервисы Google",
+    "Travail": "Работа",
+    "Salle de sport": "Спортзал",
+    "École": "Школа",
+    "Travail → Maison": "Работа → Дом",
+    "Maison → Travail": "Дом → Работа",
+    "3,2 km": "3,2 км",
+    "6,8 km": "6,8 км",
+    "28 min": "28 мин",
+    "22 min": "22 мин",
+    "21 km · via A1": "21 км · через A1",
+    "21 km · via D1001": "21 км · через D1001",
+    "Style MyElectricalData (bleu nuit)": "Стиль MyElectricalData (тёмно-синий)",
+    "Style MyElectricalData, clair ou sombre selon Home Assistant": "Стиль MyElectricalData, светлый или тёмный как в Home Assistant",
+    "Thème Home Assistant (clair ou sombre)": "Тема Home Assistant (светлая или тёмная)",
+    "Dans l'ordre de la liste": "В порядке списка",
+    "Du plus proche au plus loin": "От ближних к дальним",
+    "Lieux : masquer la zone où se trouve la personne (déjà dans l'en-tête)": "Места: скрывать зону, в которой находится человек (уже в заголовке)",
+    "Lieux : afficher la section quand la personne est à la maison": "Места: показывать раздел, когда человек дома",
+    "Lieux : ordre d'affichage (les zones trouvées seules sont toujours triées par distance)": "Места: порядок отображения (автоматически найденные зоны всегда сортируются по расстоянию)",
+    "Lieux : nombre affiché au plus": "Места: максимальное количество",
+    "« Près de » / « En approche de » un lieu : distance au bord de la zone (0 = désactivé)": "«Рядом» / «Приближается» к месту: расстояние до границы зоны (0 = выключено)",
+    "Afficher « Ici depuis » dans l'en-tête": "Показывать время пребывания («Здесь:») в заголовке",
+    "Onglets fermés au départ : le détail (Téléphone, Réseau, Infos…) s'affiche au clic sur un onglet, un second clic le referme": "Вкладки свёрнуты по умолчанию: подробности (Телефон, Сеть, Инфо…) показываются по клику на вкладку, повторный клик сворачивает её",
+    "Afficher l'adresse quand la personne est à la maison": "Показывать адрес, когда человек дома",
+    "Titre (vide = nom de la personne)": "Заголовок (пусто = имя человека)",
+    "Nom affiché (vide = celui de la personne)": "Отображаемое имя (пусто = имя человека)",
+    "Photo, adresse d'une image (vide = celle de la personne)": "Фото, адрес изображения (пусто = фото человека)",
+    "Bouton « Faire sonner le téléphone » : script ou bouton": "Кнопка «Позвонить на телефон»: скрипт или кнопка",
+    "Données passées au script (par exemple { device: mobile_app_pixel }), pour un seul script commun à plusieurs téléphones": "Данные, передаваемые скрипту (например { device: mobile_app_pixel }), для одного общего скрипта на несколько телефонов",
+    "Lieux (onglet Infos) : zones ou capteurs de distance, dans l'ordre voulu ; vide = toutes les zones": "Места (вкладка «Инфо»): зоны или датчики расстояния в нужном порядке; пусто = все зоны",
+    "Temps de trajet (onglet Infos) : capteurs Waze ou Google ; vide = ceux trouvés, false = aucun": "Время в пути (вкладка «Инфо»): датчики Waze или Google; пусто = найденные автоматически, false = нет",
+    "Fréquence cardiaque (montre)": "Пульс (часы)",
+    "Rayon « près de la maison » : anneau orange jusqu'à cette distance, rouge au-delà": "Радиус «рядом с домом»: оранжевое кольцо до этого расстояния, красное — дальше",
+    "Afficher le contenu des notifications et le dernier SMS": "Показывать текст уведомлений и последнее SMS",
+    "Afficher aussi les notifications du système (Android, constructeur, services Google)": "Показывать также системные уведомления (Android, производитель, сервисы Google)",
+    "Nombre de notifications listées au plus, par section": "Максимум уведомлений в каждом разделе",
+    "Couleurs de la carte": "Цвета карточки",
+    "Mode démo : personne et téléphone fictifs, pour les captures d'écran": "Демо-режим: вымышленные человек и телефон, для скриншотов",
+    "Fréquence cardiaque (vide = Apple Santé)": "Пульс (пусто = Apple Здоровье)",
+    "Onglet Santé (données Apple Santé)": "Вкладка «Здоровье» (данные Apple Здоровье)",
+    "Onglet Kiosque (mode kiosque et caméra)": "Вкладка «Киоск» (режим киоска и камера)",
+    "Mode démo : personne et iPhone fictifs, pour les captures d'écran": "Демо-режим: вымышленные человек и iPhone, для скриншотов",
+    "Téléphone : batterie": "Телефон: батарея",
+    "Téléphone : réseau": "Телефон: сеть",
+    "Téléphone : activité et notifications": "Телефон: активность и уведомления",
+    "Téléphone : localisation": "Телефон: геолокация",
+    "Téléphone : système": "Телефон: система",
+    "Téléphone : iphone": "Телефон: iPhone",
+    "Niveau de batterie": "Уровень заряда",
+    "État de la batterie (iPhone)": "Состояние батареи (iPhone)",
+    "Type de chargeur": "Тип зарядки",
+    "Type de réseau": "Тип сети",
+    "Réseau mobile (4G, 5G…)": "Мобильная сеть (4G, 5G…)",
+    "Wi-Fi activé": "Wi-Fi включён",
+    "VPN WireGuard : peer connecté (wgdashboard_monitor)": "VPN WireGuard: пир подключён (wgdashboard_monitor)",
+    "Connexion Bluetooth": "Подключение Bluetooth",
+    "GPS haute précision": "GPS высокой точности",
+    "Activité détectée": "Определённая активность",
+    "Mode de sonnerie": "Режим звонка",
+    "Suivi de position (device_tracker)": "Отслеживание позиции (device_tracker)",
+    "Distance de la maison (facultatif, sinon calculée)": "Расстояние до дома (необязательно, иначе рассчитывается)",
+    "Adresse géocodée": "Геокодированный адрес",
+    "Stockage (iPhone)": "Память (iPhone)",
+    "Version de l'application compagnon": "Версия приложения-компаньона",
+    "Concentration (Focus)": "Фокусирование (Focus)",
+    "Nom de la concentration": "Название фокусирования",
+    "Distance parcourue": "Пройденное расстояние",
+    "Pression atmosphérique": "Атмосферное давление",
+    "Les capteurs du téléphone de cette personne sont trouvés automatiquement.": "Датчики телефона этого человека находятся автоматически.",
+    "Les capteurs de l'iPhone de cette personne sont trouvés automatiquement.": "Датчики iPhone этого человека находятся автоматически.",
+    "Trouvée automatiquement :": "Найдено автоматически:",
+    "Vide : distance calculée par la carte d'après le GPS du téléphone": "Пусто: расстояние рассчитывается карточкой по GPS телефона",
+    "Vide : lue dans l'adresse géocodée": "Пусто: берётся из геокодированного адреса",
+  },
+};
+let LANG = "fr";
+const langOf = (h) => String(h?.locale?.language || h?.language || "fr").toLowerCase().slice(0, 2);
+const LOC = () => (LANG === "ru" ? "ru-RU" : "fr-FR");
+const tx = (k, p) => {
+  if (typeof k !== "string" || !k) return k;
+  const s = I18N[LANG]?.[k] ?? k;
+  return p ? s.replace(/\{(\w+)\}/g, (_, n) => p[n] ?? "") : s;
+};
+/** Pluriel russe : [1 (уведомление), 2 à 4 (уведомления), 5 et plus (уведомлений)]. */
+const ruPlural = (n, [one, few, many]) => {
+  const a = Math.abs(n) % 100, b = a % 10;
+  return a > 10 && a < 20 ? many : b > 1 && b < 5 ? few : b === 1 ? one : many;
+};
+const fmtMin = (m) => `${m} ${tx("min")}`;
+const fmtHM = (h, mm) => `${h} ${tx("h")} ${String(mm).padStart(2, "0")}`;
+/** Options de listes déroulantes (ha-form) : libellés traduits au moment de l'affichage. */
+const trSchema = (schema) => schema.map((f) => {
+  const opts = f.selector?.select?.options;
+  if (opts) return { ...f, selector: { select: { ...f.selector.select, options: opts.map((o) => ({ ...o, label: tx(o.label) })) } } };
+  return f.schema ? { ...f, schema: trSchema(f.schema) } : f;
+});
 
 /* ------------------------------------------------------------------ thèmes */
 // mêmes couleurs et mêmes classes de thème que les autres cartes (Imprimantes, Météo, Linky…)
@@ -283,15 +621,15 @@ const UNITS_FR = { B: "o", KB: "ko", kB: "ko", MB: "Mo", GB: "Go", TB: "To", KiB
 const fmtData = (st) => {
   if (!st || !ok(st.state)) return "—";
   const n = parseFloat(st.state), u = st.attributes?.unit_of_measurement || "Go";
-  return Number.isFinite(n) ? `${n.toLocaleString("fr-FR", { maximumFractionDigits: n < 10 ? 2 : 1 })} ${UNITS_FR[u] || u}` : st.state;
+  return Number.isFinite(n) ? `${n.toLocaleString(LOC(), { maximumFractionDigits: n < 10 ? 2 : 1 })} ${UNITS_FR[u] ? tx(UNITS_FR[u]) : u}` : st.state;
 };
 const ago = (ms) => {
   if (!ms) return "";
   const m = Math.round((Date.now() - ms) / 60000);
-  if (m < 1) return "à l'instant";
-  if (m < 60) return `il y a ${m} min`;
-  if (m < 24 * 60) return `il y a ${Math.floor(m / 60)} h`;
-  return new Date(ms).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  if (m < 1) return tx("à l'instant");
+  if (m < 60) return tx("il y a {n} min", { n: m });
+  if (m < 24 * 60) return tx("il y a {n} h", { n: Math.floor(m / 60) });
+  return new Date(ms).toLocaleDateString(LOC(), { day: "numeric", month: "short" });
 };
 
 /* ---------------------------------------------------------------- démo */
@@ -336,21 +674,21 @@ const hrColor = (b) => b < 60 ? "--med-blue" : b <= 100 ? "--med-down" : b <= 14
 const since = (ms) => {
   if (!Number.isFinite(ms)) return "";
   const m = Math.max(0, Math.round((Date.now() - ms) / 60000));
-  if (m < 60) return `${m} min`;
-  if (m < 1440) return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+  if (m < 60) return fmtMin(m);
+  if (m < 1440) return fmtHM(Math.floor(m / 60), m % 60);
   const d = Math.floor(m / 1440), hh = Math.floor((m % 1440) / 60);
-  return hh ? `${d} j ${hh} h` : `${d} j`;
+  return hh ? `${d} ${tx("j")} ${hh} ${tx("h")}` : `${d} ${tx("j")}`;
 };
 const haversine = (a, b, c, d) => {
   const R = 6371, r = Math.PI / 180, x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(x));
 };
-const fmtKm = (km) => !Number.isFinite(km) ? "—" : km < 1 ? `${Math.round(km * 1000)} m` : `${km.toLocaleString("fr-FR", { maximumFractionDigits: km < 10 ? 1 : 0 })} km`;
+const fmtKm = (km) => !Number.isFinite(km) ? "—" : km < 1 ? `${Math.round(km * 1000)} ${tx("m")}` : `${km.toLocaleString(LOC(), { maximumFractionDigits: km < 10 ? 1 : 0 })} ${tx("km")}`;
 const fmtDate = (iso, withDay) => {
   const d = new Date(iso);
   if (isNaN(d)) return null;
-  const h = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  return withDay ? `${d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} à ${h}` : h;
+  const h = d.toLocaleTimeString(LOC(), { hour: "2-digit", minute: "2-digit" });
+  return withDay ? tx("{d} à {h}", { d: d.toLocaleDateString(LOC(), { weekday: "short", day: "numeric", month: "short" }), h }) : h;
 };
 const attr = (st, ...names) => {
   if (!st?.attributes) return null;
@@ -389,13 +727,14 @@ class TrackerCard extends HTMLElement {
 
   set hass(h) {
     this._hass = h;
+    LANG = langOf(h);
     if (!this._config) return;
     const ents = this._entities();
     // temps de trajet (Waze, Google) : rafraîchis aussi quand ils changent
     const reg = h.entities || {}, tt = this._config.travel_times;
     const trips = Array.isArray(tt) ? tt.map((x) => (typeof x === "string" ? x : x?.entity)).filter(Boolean)
       : tt === false ? [] : Object.keys(h.states).filter((e) => e.startsWith("sensor.") && /^(waze_travel_time|google_travel_time)$/.test(reg[e]?.platform || ""));
-    const fp = `${this._config.theme}|${h.themes?.darkMode}|` + (this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents), ...trips]
+    const fp = `${this._config.theme}|${h.themes?.darkMode}|${LANG}|` + (this._config.demo ? "demo" : [this._config.person, this._config.heart_rate, ...Object.values(ents), ...trips]
       .filter(Boolean).map((e) => { const s = h.states[e]; return s ? s.state + "|" + (s.attributes?.latitude ?? "") + (s.attributes?.entity_picture ?? "") + (e === ents.notif_count ? JSON.stringify(s.attributes) : "")
         + (e === ents.l360 ? ["battery_level", "battery_charging", "address", "place", "driving", "speed", "wifi_on", "last_seen", "at_loc_since"].map((k) => s.attributes?.[k]).join(",") : "") : "x"; }).join(";"));
     if (fp === this._fp) return;
@@ -506,12 +845,12 @@ class TrackerCard extends HTMLElement {
     if (!this._hass || !this._config) return;
     const cfg = this._config, h = this._hass, demo = !!cfg.demo;
     const person = demo ? null : h.states[cfg.person];
-    const name = demo ? DEMO.person.name : cfg.name || String(person?.attributes?.friendly_name || "").replace(/^Life360\s+/i, "") || (cfg.person ? cfg.person.split(".")[1] : "Personne");
+    const name = demo ? DEMO.person.name : cfg.name || String(person?.attributes?.friendly_name || "").replace(/^Life360\s+/i, "") || (cfg.person ? cfg.person.split(".")[1] : tx("Personne"));
     const pic = demo ? "" : cfg.picture || person?.attributes?.entity_picture || "";
     // Life360 : état « driving » (en voiture) = hors de toute zone
     const pstate = demo ? DEMO.person.state : person?.state === "driving" ? "not_home" : person?.state;
     const home = pstate === "home";
-    const zone = !pstate || !ok(pstate) ? null : home ? "À la maison" : pstate === "not_home" ? (person?.state === "driving" ? "En voiture" : "Pas à la maison") : pstate;
+    const zone = !pstate || !ok(pstate) ? null : home ? tx("À la maison") : pstate === "not_home" ? (person?.state === "driving" ? tx("En voiture") : tx("Pas à la maison")) : pstate;
 
     // adresse : capteurs rue/ville, sinon attributs de l'adresse géocodée
     const geoSt = this._st("geocoded");
@@ -544,7 +883,7 @@ class TrackerCard extends HTMLElement {
     const bstate = String(this._v("battery_state") || "").toLowerCase();
     const charging = this._v("charging") === "on" || bstate === "charging" || bstate === "full";
     const ctype = String(this._v("charger_type") || "").toLowerCase();
-    const charger = CHARGER[ctype] || (ok(ctype) && ctype !== "none" ? ctype : "");
+    const charger = tx(CHARGER[ctype] || (ok(ctype) && ctype !== "none" ? ctype : ""));
     const bl = batLevel(bat);
 
     // réseau
@@ -580,16 +919,16 @@ class TrackerCard extends HTMLElement {
     const ncCol = !Number.isFinite(nc) ? null : nc > 10 ? "--t-red" : nc > 0 ? "--pc-warn" : "--med-down";
     const alarmIso = this._v("next_alarm");
     const alarmMs = alarmIso ? new Date(alarmIso) - Date.now() : NaN;
-    const alarm = alarmIso ? fmtDate(alarmIso, true) || alarmIso : "Aucune";
+    const alarm = alarmIso ? fmtDate(alarmIso, true) || alarmIso : tx("Aucune");
     const vpnOn = this._v("vpn") === "on";
     const hsIso = this._v("vpn_handshake");
     const hsMs = hsIso ? Date.parse(hsIso) : NaN;
-    const vData = (k) => demo ? (DEMO[k] ? `${String(DEMO[k]).replace(".", ",")} Go` : "—") : fmtData(this._st(k));
+    const vData = (k) => demo ? (DEMO[k] ? `${String(DEMO[k]).replace(".", ",")} ${tx("Go")}` : "—") : fmtData(this._st(k));
     const vpnTile = has("vpn") ? `<div class="pc-t wide"${ent("vpn")}${col(vpnOn ? "--med-down" : null)}><div class="pc-tt"><ha-icon icon="${vpnOn ? "mdi:vpn" : "mdi:lan-disconnect"}"></ha-icon>VPN WireGuard</div>
-        <b>${vpnOn ? "Connecté" : this._v("vpn") ? "Déconnecté" : "—"}</b>
+        <b>${vpnOn ? tx("Connecté") : this._v("vpn") ? tx("Déconnecté") : "—"}</b>
         <div class="pc-tn">${Number.isFinite(hsMs) ? `Handshake ${esc(ago(hsMs))}` : ""}${has("vpn_rx") || has("vpn_tx") ? `${Number.isFinite(hsMs) ? "<br>" : ""}↓ ${esc(vData("vpn_rx"))} · ↑ ${esc(vData("vpn_tx"))}` : ""}</div></div>` : "";
 
-    const smsTile = sms ? `<div class="pc-t wide multi" data-goto="notifs"><div class="pc-tt"><ha-icon icon="mdi:message-text" style="color:var(--med-accent, var(--med-blue))"></ha-icon>Dernier SMS · ${esc(sms.title)} · ${esc(ago(sms.t))}</div><b>${esc(sms.text || sms.title)}</b></div>` : "";
+    const smsTile = sms ? `<div class="pc-t wide multi" data-goto="notifs"><div class="pc-tt"><ha-icon icon="mdi:message-text" style="color:var(--med-accent, var(--med-blue))"></ha-icon>${tx("Dernier SMS")} · ${esc(sms.title)} · ${esc(ago(sms.t))}</div><b>${esc(sms.text || sms.title)}</b></div>` : "";
     // valeur numérique d'un capteur avec son unité (pas, distance, pression…)
     // unité absente (certaines versions de l'application iOS) : celle que donne l'iPhone par défaut
     const UNIT = { walk_distance: "m", pressure: "hPa", storage: "%" };
@@ -597,27 +936,27 @@ class TrackerCard extends HTMLElement {
       const v = parseFloat(this._v(k));
       if (!Number.isFinite(v)) return null;
       const u = String((demo ? "" : this._st(k)?.attributes?.unit_of_measurement) || UNIT[k] || "");
-      if (u === "m" && v >= 1000) return `${(v / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km`;
+      if (u === "m" && v >= 1000) return `${(v / 1000).toLocaleString(LOC(), { maximumFractionDigits: 1 })} ${tx("km")}`;
       // « % available » de l'application iOS (stockage) : en français
-      const uf = /^%\s*available$/i.test(u) ? "% libre" : u;
-      return `${v.toLocaleString("fr-FR", { maximumFractionDigits: digits })}${uf && uf !== "steps" && uf !== "floors" ? ` ${uf}` : ""}`;
+      const uf = /^%\s*available$/i.test(u) ? tx("% libre") : u;
+      return `${v.toLocaleString(LOC(), { maximumFractionDigits: digits })}${uf && uf !== "steps" && uf !== "floors" ? ` ${tx(uf)}` : ""}`;
     };
     const focusOn = this._v("focus") === "on";
     const focusName = this._v("focus_name");
-    const p0 = sec("mdi:cellphone-information", "Téléphone", `<div class="pc-ts tk-g4">
-        ${tile("focus", "Concentration", focusOn ? "mdi:moon-waning-crescent" : "mdi:bell-ring-outline", focusOn ? (focusName && !/^(none|aucun)$/i.test(focusName) ? focusName : "Activée") : "Désactivée", focusOn ? "--pc-violet" : null)}
-        ${tile("ringer", "Sonnerie", rIcon, rLbl, rCol)}
-        ${tile("next_alarm", "Prochaine alarme", "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : alarmIso ? "--pc-warn" : null)}
+    const p0 = sec("mdi:cellphone-information", tx("Téléphone"), `<div class="pc-ts tk-g4">
+        ${tile("focus", tx("Concentration"), focusOn ? "mdi:moon-waning-crescent" : "mdi:bell-ring-outline", focusOn ? (focusName && !/^(none|aucun)$/i.test(focusName) ? focusName : tx("Activée")) : tx("Désactivée"), focusOn ? "--pc-violet" : null)}
+        ${tile("ringer", tx("Sonnerie"), rIcon, tx(rLbl), rCol)}
+        ${tile("next_alarm", tx("Prochaine alarme"), "mdi:alarm", alarm, alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : alarmIso ? "--pc-warn" : null)}
         ${vpnTile}
         ${smsTile}
       </div>`.replace(/<div class="pc-ts tk-g4">\s*<\/div>/, ""))
-      + sec("mdi:shoe-print", "Activité du jour", `<div class="pc-ts tk-g4">
-        ${tile("steps", "Pas", "mdi:shoe-print", num("steps"), null)}
-        ${tile("walk_distance", "Distance", "mdi:map-marker-path", num("walk_distance", 1), null)}
-        ${tile("floors_up", "Étages montés", "mdi:stairs-up", num("floors_up"), null)}
-        ${tile("pressure", "Pression", "mdi:gauge", num("pressure", 1), null)}
+      + sec("mdi:shoe-print", tx("Activité du jour"), `<div class="pc-ts tk-g4">
+        ${tile("steps", tx("Pas"), "mdi:shoe-print", num("steps"), null)}
+        ${tile("walk_distance", tx("Distance"), "mdi:map-marker-path", num("walk_distance", 1), null)}
+        ${tile("floors_up", tx("Étages montés"), "mdi:stairs-up", num("floors_up"), null)}
+        ${tile("pressure", tx("Pression"), "mdi:gauge", num("pressure", 1), null)}
       </div>`.replace(/<div class="pc-ts tk-g4">\s*<\/div>/, ""))
-      + (cfg.find_phone_script ? sec("", "", `<button class="pc-btn bad" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon><span>Faire sonner le téléphone</span></button>`) : "");
+      + (cfg.find_phone_script ? sec("", "", `<button class="pc-btn bad" id="find"><ha-icon icon="mdi:cellphone-sound"></ha-icon><span>${tx("Faire sonner le téléphone")}</span></button>`) : "");
 
     // onglet Réseau
     const btOn = this._v("bt_state") === "on", btc = String(this._v("bt_conn") || "").trim();
@@ -625,45 +964,45 @@ class TrackerCard extends HTMLElement {
     const sim = this._v("sim"), simOk = sim && !/absent|no service|none/i.test(sim);
     const gps = this._v("high_acc") === "on";
     const netTiles = [
-      tile("wifi_ssid|wifi_state", "Wi-Fi", wifiOn ? "mdi:wifi" : "mdi:wifi-off", wifiOn ? ssid || "Activé" : "Désactivé", wifiOn ? "--med-down" : null),
-      tile("data_network|network_type", "Réseau mobile", "mdi:signal", dn || (net === "wifi" ? "Wi-Fi" : net === "cellular" ? "Mobile" : net || "—"), dataColor(dn)),
-      tile("bt_state", "Bluetooth", btOn ? "mdi:bluetooth" : "mdi:bluetooth-off", btOn ? (btNone ? "Activé" : btc) : "Désactivé", btOn ? (btNone ? "--med-blue" : "--med-down") : null),
-      tile("sim", "Carte SIM", "mdi:sim", sim || "—", sim ? (simOk ? "--med-down" : "--t-red") : null),
-      tile("high_acc", "GPS", gps ? "mdi:crosshairs-gps" : "mdi:crosshairs", gps ? "Haute précision" : "Standard", gps ? "--pc-violet" : null),
-      tile("hotspot", "Partage de connexion", hotOn ? "mdi:access-point" : "mdi:access-point-off", hotOn ? "Activé" : "Désactivé", hotOn ? "--pc-warn" : null),
+      tile("wifi_ssid|wifi_state", "Wi-Fi", wifiOn ? "mdi:wifi" : "mdi:wifi-off", wifiOn ? ssid || tx("Activé") : tx("Désactivé"), wifiOn ? "--med-down" : null),
+      tile("data_network|network_type", tx("Réseau mobile"), "mdi:signal", dn || (net === "wifi" ? "Wi-Fi" : net === "cellular" ? tx("Mobile") : net || "—"), dataColor(dn)),
+      tile("bt_state", "Bluetooth", btOn ? "mdi:bluetooth" : "mdi:bluetooth-off", btOn ? (btNone ? tx("Activé") : btc) : tx("Désactivé"), btOn ? (btNone ? "--med-blue" : "--med-down") : null),
+      tile("sim", tx("Carte SIM"), "mdi:sim", sim || "—", sim ? (simOk ? "--med-down" : "--t-red") : null),
+      tile("high_acc", "GPS", gps ? "mdi:crosshairs-gps" : "mdi:crosshairs", gps ? tx("Haute précision") : tx("Standard"), gps ? "--pc-violet" : null),
+      tile("hotspot", tx("Partage de connexion"), hotOn ? "mdi:access-point" : "mdi:access-point-off", hotOn ? tx("Activé") : tx("Désactivé"), hotOn ? "--pc-warn" : null),
     ].join("");
     const placeTiles = [
-      rue ? `<div class="pc-t"${ent(E.rue ? "rue" : "geocoded")}><div class="pc-tt"><ha-icon icon="mdi:road-variant"></ha-icon>Rue</div><b>${esc(rue)}</b></div>` : "",
-      ville ? `<div class="pc-t"${ent(E.ville ? "ville" : "geocoded")}><div class="pc-tt"><ha-icon icon="mdi:city-variant-outline"></ha-icon>Ville</div><b>${esc(ville)}</b></div>` : "",
+      rue ? `<div class="pc-t"${ent(E.rue ? "rue" : "geocoded")}><div class="pc-tt"><ha-icon icon="mdi:road-variant"></ha-icon>${tx("Rue")}</div><b>${esc(rue)}</b></div>` : "",
+      ville ? `<div class="pc-t"${ent(E.ville ? "ville" : "geocoded")}><div class="pc-tt"><ha-icon icon="mdi:city-variant-outline"></ha-icon>${tx("Ville")}</div><b>${esc(ville)}</b></div>` : "",
     ].join("");
-    const p1 = sec("mdi:access-point-network", "Connexions", netTiles ? `<div class="pc-ts">${netTiles}</div>` : "")
-      + sec("mdi:map-marker-outline", "Position", placeTiles ? `<div class="pc-ts">${placeTiles}</div>` : "");
+    const p1 = sec("mdi:access-point-network", tx("Connexions"), netTiles ? `<div class="pc-ts">${netTiles}</div>` : "")
+      + sec("mdi:map-marker-outline", tx("Position"), placeTiles ? `<div class="pc-ts">${placeTiles}</div>` : "");
 
     // onglet Infos
     const rb = this._v("last_reboot");
     const infoTiles = [
-      tile("public_ip", "IP publique", "mdi:web", this._v("public_ip"), null, "wide"),
-      tile("last_reboot", "Dernier redémarrage", "mdi:restart", rb ? fmtDate(rb, true) || rb : null, null, "wide"),
-      tile("storage", "Stockage", "mdi:harddisk", num("storage", 0), null),
-      tile("app_version", "Application compagnon", "mdi:cellphone-arrow-down", this._v("app_version"), null),
-      tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
-      this._l360 && this._st("l360")?.attributes?.last_seen ? `<div class="pc-t wide"${ent("l360")}><div class="pc-tt"><ha-icon icon="mdi:map-clock-outline"></ha-icon>Dernière position Life360</div><b>${esc(fmtDate(this._st("l360").attributes.last_seen, true) || "—")}</b></div>` : "",
+      tile("public_ip", tx("IP publique"), "mdi:web", this._v("public_ip"), null, "wide"),
+      tile("last_reboot", tx("Dernier redémarrage"), "mdi:restart", rb ? fmtDate(rb, true) || rb : null, null, "wide"),
+      tile("storage", tx("Stockage"), "mdi:harddisk", num("storage", 0), null),
+      tile("app_version", tx("Application compagnon"), "mdi:cellphone-arrow-down", this._v("app_version"), null),
+      tile("geocoded", tx("Adresse"), "mdi:map-marker-outline", geo, null, "wide"),
+      this._l360 && this._st("l360")?.attributes?.last_seen ? `<div class="pc-t wide"${ent("l360")}><div class="pc-tt"><ha-icon icon="mdi:map-clock-outline"></ha-icon>${tx("Dernière position Life360")}</div><b>${esc(fmtDate(this._st("l360").attributes.last_seen, true) || "—")}</b></div>` : "",
     ].join("");
-    const p2 = this._extras(this._st("tracker") || person) + sec("mdi:information-outline", "Appareil", infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
+    const p2 = this._extras(this._st("tracker") || person) + sec("mdi:information-outline", tx("Appareil"), infoTiles ? `<div class="pc-ts">${infoTiles}</div>` : "");
 
     // onglet Notifications
     // applications d'un côté, système (Android, constructeur, services Google) de l'autre
     const max = cfg.notifications_max || 20;
     const nItem = (n) => { const [app, icon] = appInfo(n.pkg); return `
-      <div class="tk-n"><ha-icon icon="${esc(icon)}"></ha-icon><div><div class="tk-nh"><span>${esc(app)}</span><span>${esc(ago(n.t))}</span></div>
+      <div class="tk-n"><ha-icon icon="${esc(icon)}"></ha-icon><div><div class="tk-nh"><span>${esc(tx(app))}</span><span>${esc(ago(n.t))}</span></div>
         ${n.title ? `<b>${esc(n.title)}</b>` : ""}${n.text ? `<p>${esc(n.text)}</p>` : ""}</div></div>`; };
     const nList = (list) => `<div class="tk-nl">${list.slice(0, max).map(nItem).join("")}</div>`;
-    const plural = (n, w) => `${n} ${w}${n > 1 ? "s" : ""}`;
+    const plural = (n, w) => LANG === "ru" ? `${n} ${ruPlural(n, ["уведомление", "уведомления", "уведомлений"])}` : `${n} ${w}${n > 1 ? "s" : ""}`;
     const appN = notifs.filter((n) => !isSystem(n.pkg)), sysN = cfg.system_notifications === false ? [] : notifs.filter((n) => isSystem(n.pkg));
-    const p3 = (appN.length ? sec("mdi:bell-outline", `Applications · ${plural(appN.length, "notification")}`, nList(appN)) : "")
-      + (sysN.length ? sec("mdi:cellphone-cog", `Système · ${plural(sysN.length, "notification")}`, nList(sysN)) : "");
+    const p3 = (appN.length ? sec("mdi:bell-outline", `${tx("Applications")} · ${plural(appN.length, "notification")}`, nList(appN)) : "")
+      + (sysN.length ? sec("mdi:cellphone-cog", `${tx("Système")} · ${plural(sysN.length, "notification")}`, nList(sysN)) : "");
 
-    const panels = [["mdi:cellphone", "Téléphone", p0], ["mdi:wifi", "Réseau", p1], ["mdi:bell-outline", "Notifications", p3, "notifs"], ["mdi:information-outline", "Infos", p2]]
+    const panels = [["mdi:cellphone", tx("Téléphone"), p0], ["mdi:wifi", tx("Réseau"), p1], ["mdi:bell-outline", tx("Notifications"), p3, "notifs"], ["mdi:information-outline", tx("Infos"), p2]]
       .filter(([, , p]) => p.trim());
     this._panelIds = panels.map((x) => x[3] || "");
     if (this._tab >= panels.length || (this._tab < 0 && (!cfg.collapsed || panels.length < 2))) this._tab = cfg.collapsed && panels.length > 1 ? -1 : 0;
@@ -672,42 +1011,42 @@ class TrackerCard extends HTMLElement {
     // anneau de présence : vert à la maison, orange jusqu'à near_radius km (5 par défaut), rouge au-delà
     const radius = Number(cfg.near_radius) > 0 ? Number(cfg.near_radius) : 5;
     const pres = !pstate || !ok(pstate) ? "" : home ? "home" : Number.isFinite(km) ? (km <= radius ? "near" : "far") : "away";
-    const presTip = { home: "À la maison", near: `À moins de ${radius} km de la maison`, far: `À plus de ${radius} km de la maison`, away: "Pas à la maison" }[pres] || "Présence inconnue";
+    const presTip = { home: tx("À la maison"), near: tx("À moins de {r} km de la maison", { r: radius }), far: tx("À plus de {r} km de la maison", { r: radius }), away: tx("Pas à la maison") }[pres] || tx("Présence inconnue");
     const meta = [
       // activité inconnue (iPhone sans mouvement détecté) : rien plutôt que « Inconnue »
-      has("activity") && act !== "unknown" && ok(act) ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
+      has("activity") && act !== "unknown" && ok(act) ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(tx(aLbl))}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
       demo ? "" : this._sinceSpan(person, pstate),
       this._l360Speed(),
-      Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
-      charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash" style="color:var(--pc-warn)"></ha-icon>${esc(charger || "En charge")}</span>` : "",
+      Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} ${tx("bpm")}</span>` : "",
+      charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash" style="color:var(--pc-warn)"></ha-icon>${esc(charger || tx("En charge"))}</span>` : "",
     ].join("");
     // pastilles rondes : Wi-Fi, réseau mobile, Bluetooth, VPN, notifications, alarme
     const dial = (k, label, inner, c, state, extra = "", tip = label) => `<div class="tk-dial ${state}"${extra || ent(k)}${col(c)} title="${esc(tip)}"><div>${inner}</div><span>${esc(label)}</span></div>`;
     const icon = (i) => `<ha-icon icon="${i}"></ha-icon>`;
     const alarmHm = alarmIso ? fmtDate(alarmIso, false) : null;
     const dials = [
-      has("battery") ? dial("battery", "Batterie", `${Number.isFinite(bat) ? Math.round(bat) : "—"}${charging ? `<ha-icon icon="mdi:flash" style="--mdc-icon-size:14px;margin-left:-1px"></ha-icon>` : `<small style="font-size:.62rem">%</small>`}`,
-        LVL[bl], "on", "", `Batterie ${Number.isFinite(bat) ? Math.round(bat) + " %" : ""}${charging ? ` · en charge${charger ? ` (${charger})` : ""}` : ""}`) : "",
-      has("wifi_state") || has("wifi_ssid") ? dial(has("wifi_ssid") ? "wifi_ssid" : "wifi_state", "Wi-Fi", icon(wifiOn ? "mdi:wifi" : "mdi:wifi-off"), wifiOn ? "--med-down" : null, wifiOn ? "on" : "off", "", wifiOn ? `Wi-Fi : ${ssid || "connecté"}` : "Wi-Fi désactivé") : "",
-      has("data_network") || net === "cellular" ? dial(has("data_network") ? "data_network" : "network_type", "Mobile", dn ? esc(String(dn).replace(/^NR$/i, "5G").slice(0, 4)) : icon("mdi:signal"), dataColor(dn) || "--med-blue", "on") : "",
-      has("bt_state") ? dial("bt_state", "Bluetooth", icon(btOn ? "mdi:bluetooth" : "mdi:bluetooth-off"), btOn ? "--med-blue" : null, btOn ? "on" : "off", "", btOn ? (btNone ? "Bluetooth activé" : `Bluetooth : ${btc}`) : "Bluetooth désactivé") : "",
+      has("battery") ? dial("battery", tx("Batterie"), `${Number.isFinite(bat) ? Math.round(bat) : "—"}${charging ? `<ha-icon icon="mdi:flash" style="--mdc-icon-size:14px;margin-left:-1px"></ha-icon>` : `<small style="font-size:.62rem">%</small>`}`,
+        LVL[bl], "on", "", `${tx("Batterie")} ${Number.isFinite(bat) ? Math.round(bat) + " %" : ""}${charging ? ` · ${tx("en charge")}${charger ? ` (${charger})` : ""}` : ""}`) : "",
+      has("wifi_state") || has("wifi_ssid") ? dial(has("wifi_ssid") ? "wifi_ssid" : "wifi_state", "Wi-Fi", icon(wifiOn ? "mdi:wifi" : "mdi:wifi-off"), wifiOn ? "--med-down" : null, wifiOn ? "on" : "off", "", wifiOn ? `Wi-Fi : ${ssid || tx("connecté")}` : tx("Wi-Fi désactivé")) : "",
+      has("data_network") || net === "cellular" ? dial(has("data_network") ? "data_network" : "network_type", tx("Mobile"), dn ? esc(String(dn).replace(/^NR$/i, "5G").slice(0, 4)) : icon("mdi:signal"), dataColor(dn) || "--med-blue", "on") : "",
+      has("bt_state") ? dial("bt_state", "Bluetooth", icon(btOn ? "mdi:bluetooth" : "mdi:bluetooth-off"), btOn ? "--med-blue" : null, btOn ? "on" : "off", "", btOn ? (btNone ? tx("Bluetooth activé") : `Bluetooth : ${btc}`) : tx("Bluetooth désactivé")) : "",
       has("vpn") ? dial("vpn", "VPN", icon(vpnOn ? "mdi:vpn" : "mdi:lan-disconnect"), vpnOn ? "--pc-violet" : null, vpnOn ? "on" : "off") : "",
-      hotOn ? dial("hotspot", "Partage", icon("mdi:access-point"), "--pc-warn", "on") : "",
-      has("notif_count") ? dial("notif_count", "Notifs", Number.isFinite(nc) ? String(nc) : icon("mdi:bell-off-outline"), ncCol, Number.isFinite(nc) && nc > 0 ? "on" : "off", notifs.length ? ` data-goto="notifs"` : "") : "",
-      has("next_alarm") ? dial("next_alarm", "Alarme", alarmHm ? `<small style="font-size:.74rem">${esc(alarmHm)}</small>` : icon("mdi:alarm-off"), alarmIso ? (alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : "--pc-warn") : null, alarmIso ? "on" : "off") : "",
+      hotOn ? dial("hotspot", tx("Partage"), icon("mdi:access-point"), "--pc-warn", "on") : "",
+      has("notif_count") ? dial("notif_count", tx("Notifs"), Number.isFinite(nc) ? String(nc) : icon("mdi:bell-off-outline"), ncCol, Number.isFinite(nc) && nc > 0 ? "on" : "off", notifs.length ? ` data-goto="notifs"` : "") : "",
+      has("next_alarm") ? dial("next_alarm", tx("Alarme"), alarmHm ? `<small style="font-size:.74rem">${esc(alarmHm)}</small>` : icon("mdi:alarm-off"), alarmIso ? (alarmMs > 0 && alarmMs < 3600e3 ? "--t-red" : "--pc-warn") : null, alarmIso ? "on" : "off") : "",
     ].join("");
 
     const html = `
       <div class="tk-hero ${pres}">
-        ${cfg.title || demo ? `<div class="tk-top">${esc(cfg.title || "")}${demo ? "<small>Démo</small>" : ""}</div>` : ""}
+        ${cfg.title || demo ? `<div class="tk-top">${esc(cfg.title || "")}${demo ? `<small>${tx("Démo")}</small>` : ""}</div>` : ""}
         <div class="tk-ring"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`} title="${esc(presTip)}">
           <svg viewBox="0 0 92 92"><circle class="bg" cx="46" cy="46" r="42"></circle>${pres ? `<circle class="fg" cx="46" cy="46" r="42"></circle>` : ""}</svg>
           <div class="tk-face">${pic ? `<img src="${esc(pic)}" alt="">` : esc((name || "?").trim().charAt(0).toUpperCase())}</div>
         </div>
         <div class="tk-id">
           <div class="tk-name">${esc(name)}</div>
-          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? "Inconnu" : "Choisissez une personne")) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
+          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? tx("Inconnu") : tx("Choisissez une personne"))) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
           ${where && !(home && cfg.address_at_home === false) ? `<div class="tk-addr">${esc(where)}</div>` : ""}
           ${meta ? `<div class="tk-meta">${meta}</div>` : ""}
         </div>
@@ -715,7 +1054,7 @@ class TrackerCard extends HTMLElement {
       ${dials ? `<div class="tk-dials">${dials}</div>` : ""}
       ${panels.length > 1 ? `<div class="pc-tabs">${panels.map(([i, l], n) => `<button class="pc-tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}${panels[n][3] === "notifs" ? ` <small>${appN.length + sysN.length}</small>` : ""}</button>`).join("")}</div>` : ""}
       ${panels.map(([, , p], n) => `<div class="panel${n === this._tab ? " on" : ""}">${p}</div>`).join("")}
-      ${!panels.length && !demo && !Number.isFinite(bat) && !has("activity") ? `<div class="empty">${cfg.person ? "<b>Aucun capteur de téléphone trouvé</b><span>Indiquez-les dans l'éditeur de la carte (section Téléphone).</span>" : "<b>Choisissez une personne</b><span>dans l'éditeur de la carte.</span>"}</div>` : ""}`;
+      ${!panels.length && !demo && !Number.isFinite(bat) && !has("activity") ? `<div class="empty">${cfg.person ? `<b>${tx("Aucun capteur de téléphone trouvé")}</b><span>${tx("Indiquez-les dans l'éditeur de la carte (section Téléphone).")}</span>` : `<b>${tx("Choisissez une personne")}</b><span>${tx("dans l'éditeur de la carte.")}</span>`}</div>` : ""}`;
 
     if (full || !this._card) {
       this.shadowRoot.innerHTML = `${STYLE}<ha-card></ha-card>`;
@@ -756,7 +1095,7 @@ class TrackerCard extends HTMLElement {
       const zl = parseFloat(z.attributes?.latitude), zo = parseFloat(z.attributes?.longitude);
       if (!Number.isFinite(zl) || !Number.isFinite(zo)) continue;
       const edge = haversine(la, lo, zl, zo) * 1000 - (parseFloat(z.attributes?.radius) || 100);
-      if (edge <= lim && (!best || edge < best.edge)) best = { id, edge, name: id === "zone.home" ? "la maison" : z.attributes?.friendly_name || id };
+      if (edge <= lim && (!best || edge < best.edge)) best = { id, edge, name: id === "zone.home" ? tx("la maison") : z.attributes?.friendly_name || id };
     }
     this._edges ||= {};
     if (!best) { this._edges = {}; return null; }
@@ -768,7 +1107,7 @@ class TrackerCard extends HTMLElement {
   /** Texte ajouté à la zone de l'en-tête : « · En approche de Travail » ou « · Près de la maison ». */
   _nearTxt(pstate, src) {
     const n = this._nearPlace(pstate, src);
-    return n ? ` · ${n.approaching ? "En approche de" : "Près de"} ${n.name}` : "";
+    return n ? ` · ${n.approaching ? tx("En approche de") : tx("Près de")} ${n.name}` : "";
   }
 
   /** « Ici depuis 2 h 05 » (dans une zone) ou « Parti depuis 25 min » (hors zone), d'après le changement d'état de la personne. */
@@ -777,14 +1116,14 @@ class TrackerCard extends HTMLElement {
     // Life360 : « au lieu depuis » donné par Life360, plus juste que le dernier changement d'état
     const l3 = this._l360 && this._hass?.states?.[this._l360.id]?.attributes?.at_loc_since;
     const d = since(Date.parse(l3 || person.last_changed));
-    return d ? `<span title="Depuis le dernier changement de lieu"><ha-icon icon="mdi:timer-sand"></ha-icon>${pstate === "not_home" ? "Parti depuis" : "Ici depuis"} ${esc(d)}</span>` : "";
+    return d ? `<span title="${esc(tx("Depuis le dernier changement de lieu"))}"><ha-icon icon="mdi:timer-sand"></ha-icon>${pstate === "not_home" ? tx("Parti depuis") : tx("Ici depuis")} ${esc(d)}</span>` : "";
   }
 
   /** Life360 : vitesse (en km/h si Home Assistant est en métrique) quand la personne se déplace. */
   _l360Speed() {
     const a = this._l360 && this._hass?.states?.[this._l360.id]?.attributes;
     const v = parseFloat(a?.speed);
-    return Number.isFinite(v) && v > 3 ? `<span style="color:var(--med-blue)"><ha-icon icon="mdi:speedometer"></ha-icon>${Math.round(v)} ${this._hass.config?.unit_system?.length === "mi" ? "mph" : "km/h"}</span>` : "";
+    return Number.isFinite(v) && v > 3 ? `<span style="color:var(--med-blue)"><ha-icon icon="mdi:speedometer"></ha-icon>${Math.round(v)} ${this._hass.config?.unit_system?.length === "mi" ? tx("mph") : tx("km/h")}</span>` : "";
   }
 
   /** Distances aux lieux (zones ou capteurs de distance, option places) et temps de trajet (Waze, option travel_times). */
@@ -823,7 +1162,7 @@ class TrackerCard extends HTMLElement {
       .filter((p) => Number.isFinite(p.km) && !(p.inside && cfg.places_hide_current !== false))
       // ordre : celui de la liste places ; par distance pour les zones trouvées seules ou avec places_sort: distance
       .sort((a, b) => (auto || cfg.places_sort === "distance" ? a.km - b.km : 0)).slice(0, Number(cfg.places_max) || 8);
-    const pl = rows.map((p) => t(p.entity, p.name, p.icon, p.inside ? "Sur place" : fmtKm(p.km), p.inside ? "--med-down" : null)).join("");
+    const pl = rows.map((p) => t(p.entity, p.name, p.icon, p.inside ? tx("Sur place") : fmtKm(p.km), p.inside ? "--med-down" : null)).join("");
     // temps de trajet : capteurs de l'option travel_times, sinon ceux de Waze et Google trouvés
     let trips = cfg.travel_times;
     if (trips === false) trips = [];
@@ -831,20 +1170,20 @@ class TrackerCard extends HTMLElement {
     const tr = trips.map((p) => (typeof p === "string" ? { entity: p } : p || {})).filter((p) => p.entity && st[p.entity]).map((p) => {
       const s = st[p.entity], a = s.attributes || {}, min = parseFloat(s.state);
       if (!Number.isFinite(min)) return "";
-      const m = Math.round(min), dur = m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`;
+      const m = Math.round(min), dur = m >= 60 ? fmtHM(Math.floor(m / 60), m % 60) : fmtMin(m);
       const dist = parseFloat(a.distance);
-      const note = [Number.isFinite(dist) ? `${dist.toLocaleString("fr-FR", { maximumFractionDigits: dist < 10 ? 1 : 0 })} km` : "", a.route ? `via ${a.route}` : ""].filter(Boolean).join(" · ");
+      const note = [Number.isFinite(dist) ? `${dist.toLocaleString(LOC(), { maximumFractionDigits: dist < 10 ? 1 : 0 })} ${tx("km")}` : "", a.route ? `${tx("via")} ${a.route}` : ""].filter(Boolean).join(" · ");
       // retard : au-delà du trajet habituel indiqué (option usual, en minutes)
       const c = Number(p.usual) > 0 ? (m > p.usual * 1.25 ? "--t-red" : m > p.usual * 1.1 ? "--pc-warn" : "--med-down") : null;
       return t(p.entity, p.name || a.friendly_name || p.entity, p.icon || "mdi:car-clock", dur, c, note);
     }).join("");
-    return box("mdi:map-marker-multiple-outline", "Lieux", pl) + box("mdi:car-clock", "Temps de trajet", tr);
+    return box("mdi:map-marker-multiple-outline", tx("Lieux"), pl) + box("mdi:car-clock", tx("Temps de trajet"), tr);
   }
 
   _extrasDemo() {
     const t = (label, icon, val, c, note) => `<div class="pc-t"${c ? ` style="--c:var(${c})"` : ""}><div class="pc-tt"><ha-icon icon="${icon}"></ha-icon>${label}</div><b>${val}</b>${note ? `<div class="pc-tn">${note}</div>` : ""}</div>`;
-    return `<div class="pc-sec"><div class="pc-h"><ha-icon icon="mdi:map-marker-multiple-outline"></ha-icon>Lieux</div><div class="pc-ts">${t("Travail", "mdi:briefcase", "Sur place", "--med-down")}${t("Salle de sport", "mdi:dumbbell", "3,2 km")}${t("École", "mdi:school", "6,8 km")}</div></div>`
-      + `<div class="pc-sec"><div class="pc-h"><ha-icon icon="mdi:car-clock"></ha-icon>Temps de trajet</div><div class="pc-ts">${t("Travail → Maison", "mdi:car-clock", "28 min", "--pc-warn", "21 km · via A1")}${t("Maison → Travail", "mdi:car-clock", "22 min", "--med-down", "21 km · via D1001")}</div></div>`;
+    return `<div class="pc-sec"><div class="pc-h"><ha-icon icon="mdi:map-marker-multiple-outline"></ha-icon>${tx("Lieux")}</div><div class="pc-ts">${t(tx("Travail"), "mdi:briefcase", tx("Sur place"), "--med-down")}${t(tx("Salle de sport"), "mdi:dumbbell", tx("3,2 km"))}${t(tx("École"), "mdi:school", tx("6,8 km"))}</div></div>`
+      + `<div class="pc-sec"><div class="pc-h"><ha-icon icon="mdi:car-clock"></ha-icon>${tx("Temps de trajet")}</div><div class="pc-ts">${t(tx("Travail → Maison"), "mdi:car-clock", tx("28 min"), "--pc-warn", tx("21 km · via A1"))}${t(tx("Maison → Travail"), "mdi:car-clock", tx("22 min"), "--med-down", tx("21 km · via D1001"))}</div></div>`;
   }
 
   async _find(btn) {
@@ -947,7 +1286,7 @@ const DEFAULTS = { title: "", theme: "v2", near_radius: 5, notifications: true, 
 
 class TrackerCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
-  set hass(hass) { this._hass = hass; if (this._form) { this._form.hass = hass; this._auto(); } else this._draw(); }
+  set hass(hass) { LANG = langOf(hass); this._hass = hass; if (this._form) { this._form.hass = hass; this._auto(); } else this._draw(); }
   /** Entités trouvées automatiquement : affichées sous chaque champ vide de la section Téléphone. */
   _auto() {
     try { const probe = document.createElement("tracker-card"); probe.setConfig({ ...this._config, phone: {} }); probe._hass = this._hass; this._found = probe._entities(); } catch (e) { this._found = {}; }
@@ -957,15 +1296,15 @@ class TrackerCardEditor extends HTMLElement {
     this._auto();
     if (!this._form) {
       this._form = document.createElement("ha-form");
-      this._form.computeLabel = (s) => s.title || LABELS[s.name] || s.name;
+      this._form.computeLabel = (s) => tx(s.title || LABELS[s.name] || s.name);
       this._form.computeHelper = (s) => {
         if (!PHONE_KEYS[s.name] && !["tracker", "proximity", "rue", "ville", "vpn"].includes(s.name)) {
-          return s.name === "person" ? "Les capteurs du téléphone de cette personne sont trouvés automatiquement." : undefined;
+          return s.name === "person" ? tx("Les capteurs du téléphone de cette personne sont trouvés automatiquement.") : undefined;
         }
         if (this._config.phone?.[s.name]) return undefined;
-        if (this._found?.[s.name]) return `Trouvée automatiquement : ${this._found[s.name]}`;
-        return s.name === "proximity" ? "Vide : distance calculée par la carte d'après le GPS du téléphone"
-          : s.name === "rue" || s.name === "ville" ? "Vide : lue dans l'adresse géocodée" : undefined;
+        if (this._found?.[s.name]) return `${tx("Trouvée automatiquement :")} ${this._found[s.name]}`;
+        return s.name === "proximity" ? tx("Vide : distance calculée par la carte d'après le GPS du téléphone")
+          : s.name === "rue" || s.name === "ville" ? tx("Vide : lue dans l'adresse géocodée") : undefined;
       };
       this._form.addEventListener("value-changed", (ev) => {
         const cfg = { ...ev.detail.value };
@@ -982,7 +1321,7 @@ class TrackerCardEditor extends HTMLElement {
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.schema = placesSchema(SCHEMA, this._config);
+    this._form.schema = trSchema(placesSchema(SCHEMA, this._config));
     this._form.data = { ...DEFAULTS, ...this._config, phone: { ...(this._config.phone || {}) } };
   }
 }
@@ -1064,7 +1403,7 @@ const IOS_STATE = {
   "background fetch": "En arrière-plan", siri: "Siri", "ibeacon region entered": "Balise iBeacon", registration: "Enregistrement", signaled: "Signal de l'application",
   streaming: "Diffusion en cours", idle: "En attente", on: "Activé", off: "Désactivé",
 };
-const iosFr = (v) => (v == null ? null : IOS_STATE[String(v).toLowerCase().trim()] || String(v));
+const iosFr = (v) => (v == null ? null : tx(IOS_STATE[String(v).toLowerCase().trim()]) || String(v));
 /** Technologie radio iOS (CTRadioAccessTechnologyNR, LTE…) en 5G, 4G, 3G, 2G. */
 const radioFr = (v) => {
   const r = String(v || "").replace(/^CTRadioAccessTechnology/i, "");
@@ -1094,11 +1433,11 @@ class TrackerIphoneCard extends TrackerCard {
     const cfg = this._config, h = this._hass, demo = !!cfg.demo;
     const E = demo ? Object.fromEntries(Object.keys(IOS_DEMO).map((k) => [k, k])) : this._entities();
     const person = demo ? null : h.states[cfg.person];
-    const name = demo ? "Camille" : cfg.name || person?.attributes?.friendly_name || (cfg.person ? cfg.person.split(".")[1] : "Personne");
+    const name = demo ? "Camille" : cfg.name || person?.attributes?.friendly_name || (cfg.person ? cfg.person.split(".")[1] : tx("Personne"));
     const pic = demo ? "" : cfg.picture || person?.attributes?.entity_picture || "";
     const pstate = demo ? "not_home" : person?.state;
     const home = pstate === "home";
-    const zone = !pstate || !ok(pstate) ? null : home ? "À la maison" : pstate === "not_home" ? "Pas à la maison" : pstate;
+    const zone = !pstate || !ok(pstate) ? null : home ? tx("À la maison") : pstate === "not_home" ? tx("Pas à la maison") : pstate;
     const has = (k) => (demo ? IOS_DEMO[k] != null : !!E[k]);
     const st = (k) => (demo ? null : this._st(k));
     const v = (k) => this._v(k);
@@ -1114,13 +1453,13 @@ class TrackerIphoneCard extends TrackerCard {
       if (raw == null) return null;
       if (!Number.isFinite(n)) return iosFr(raw);
       let u = String((demo ? "" : st(k)?.attributes?.unit_of_measurement) || UNIT[k] || "");
-      if (/^%\s*available$/i.test(u)) u = "% libre";
-      if (u === "m" && n >= 1000) return `${(n / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} km`;
+      if (/^%\s*available$/i.test(u)) u = tx("% libre");
+      if (u === "m" && n >= 1000) return `${(n / 1000).toLocaleString(LOC(), { maximumFractionDigits: 1 })} ${tx("km")}`;
       if (/^(steps|floors|count)$/i.test(u)) u = "";
       // durées (sommeil, heures debout) : « 7 h 12 » plutôt que « 7,2 h »
-      if (/^(h|hr|hours?)$/i.test(u) && !/stand/.test(k)) { const m = Math.round(n * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; }
-      if (/^min$/i.test(u) && n >= 60 && /sleep|bed|awake/.test(k)) { const m = Math.round(n); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`; }
-      return `${n.toLocaleString("fr-FR", { maximumFractionDigits: digits })}${u ? ` ${u}` : ""}`;
+      if (/^(h|hr|hours?)$/i.test(u) && !/stand/.test(k)) { const m = Math.round(n * 60); return fmtHM(Math.floor(m / 60), m % 60); }
+      if (/^min$/i.test(u) && n >= 60 && /sleep|bed|awake/.test(k)) { const m = Math.round(n); return fmtHM(Math.floor(m / 60), m % 60); }
+      return `${n.toLocaleString(LOC(), { maximumFractionDigits: digits })}${u ? ` ${tx(u)}` : ""}`;
     };
     const tile = (k, label, icon, val, c, opts = "") => has(k) && val != null && val !== ""
       ? `<div class="pc-t${opts.includes("wide") ? " wide" : ""}"${entA(k)}${col(c)}><div class="pc-tt"><ha-icon icon="${esc(icon)}"></ha-icon>${esc(label)}</div><b>${esc(val)}</b>${opts.includes("note:") ? `<div class="pc-tn">${esc(opts.split("note:")[1])}</div>` : ""}</div>`
@@ -1157,7 +1496,7 @@ class TrackerIphoneCard extends TrackerCard {
     const tnum = (k) => { const x = parseFloat(ta[k]); return Number.isFinite(x) ? x : null; };
     const spd = tnum("speed"), alt = tnum("altitude"), crs = tnum("course"), acc = tnum("gps_accuracy"), vacc = tnum("vertical_accuracy"), flr = tnum("floor");
     const kmh = spd !== null && spd >= 0 ? spd * 3.6 : null;
-    const DIRS = ["nord", "nord-est", "est", "sud-est", "sud", "sud-ouest", "ouest", "nord-ouest"];
+    const DIRS = [tx("nord"), tx("nord-est"), tx("est"), tx("sud-est"), tx("sud"), tx("sud-ouest"), tx("ouest"), tx("nord-ouest")];
     const dirOf = (deg) => DIRS[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 
     // adresse et distance (comme la carte Présence et téléphone)
@@ -1178,21 +1517,21 @@ class TrackerIphoneCard extends TrackerCard {
     // onglet Téléphone
     const pace = parseFloat(v("pace"));
     // allure : la documentation donne m/s ; une valeur > 3 est lue comme des secondes par mètre
-    const paceTxt = !Number.isFinite(pace) || pace <= 0 ? null : (() => { const spk = pace > 3 ? pace * 1000 : 1000 / pace; const m = Math.floor(spk / 60), s = Math.round(spk % 60); return `${m} min ${String(s).padStart(2, "0")} /km`; })();
+    const paceTxt = !Number.isFinite(pace) || pace <= 0 ? null : (() => { const spk = pace > 3 ? pace * 1000 : 1000 / pace; const m = Math.floor(spk / 60), s = Math.round(spk % 60); return `${m} ${tx("min")} ${String(s).padStart(2, "0")} /${tx("km")}`; })();
     const pPhone = sec("mdi:cellphone", "iPhone", grid([
-      tile("battery_state", "Batterie", charging ? "mdi:battery-charging" : batIcon(bat, false), `${iosFr(v("battery_state"))}${lowPower ? " · économie d'énergie" : ""}`, lowPower ? "--pc-warn" : charging ? "--med-down" : null, lowPower ? "wide" : ""),
-      tile("focus", "Concentration", focusOn ? "mdi:moon-waning-crescent" : "mdi:bell-ring-outline", focusOn ? "Activée" : "Désactivée", focusOn ? "--pc-violet" : null),
-      tile("activity", "Activité", aIcon, ok(act) && act !== "unknown" ? `${aLbl}${conf ? ` · confiance ${String(conf).toLowerCase() === "high" ? "élevée" : String(conf).toLowerCase() === "medium" ? "moyenne" : "faible"}` : ""}` : "Inconnue", null),
-    ])) + sec("mdi:shoe-print", "Activité du jour", grid([
-      tile("steps", "Pas", "mdi:shoe-print", num("steps")),
-      tile("walk_distance", "Distance", "mdi:map-marker-path", num("walk_distance", 1)),
-      tile("floors_up", "Étages montés", "mdi:stairs-up", num("floors_up")),
-      tile("floors_down", "Étages descendus", "mdi:stairs-down", num("floors_down")),
-      tile("pace", "Allure moyenne", "mdi:run-fast", paceTxt),
-      tile("pressure", "Pression", "mdi:gauge", num("pressure", 1)),
+      tile("battery_state", tx("Batterie"), charging ? "mdi:battery-charging" : batIcon(bat, false), `${iosFr(v("battery_state"))}${lowPower ? tx(" · économie d'énergie") : ""}`, lowPower ? "--pc-warn" : charging ? "--med-down" : null, lowPower ? "wide" : ""),
+      tile("focus", tx("Concentration"), focusOn ? "mdi:moon-waning-crescent" : "mdi:bell-ring-outline", focusOn ? tx("Activée") : tx("Désactivée"), focusOn ? "--pc-violet" : null),
+      tile("activity", tx("Activité"), aIcon, ok(act) && act !== "unknown" ? `${tx(aLbl)}${conf ? ` · ${tx("confiance")} ${String(conf).toLowerCase() === "high" ? tx("élevée") : String(conf).toLowerCase() === "medium" ? tx("moyenne") : tx("faible")}` : ""}` : tx("Inconnue"), null),
+    ])) + sec("mdi:shoe-print", tx("Activité du jour"), grid([
+      tile("steps", tx("Pas"), "mdi:shoe-print", num("steps")),
+      tile("walk_distance", tx("Distance"), "mdi:map-marker-path", num("walk_distance", 1)),
+      tile("floors_up", tx("Étages montés"), "mdi:stairs-up", num("floors_up")),
+      tile("floors_down", tx("Étages descendus"), "mdi:stairs-down", num("floors_down")),
+      tile("pace", tx("Allure moyenne"), "mdi:run-fast", paceTxt),
+      tile("pressure", tx("Pression"), "mdi:gauge", num("pressure", 1)),
     ])) + sec("mdi:watch-variant", "Apple Watch", grid([
-      tile("watch_battery", "Batterie de la montre", wchg ? "mdi:battery-charging" : batIcon(wbat, false), num("watch_battery"), LVL[batLevel(wbat)]),
-      tile("watch_battery_state", "Charge de la montre", "mdi:watch", iosFr(v("watch_battery_state"))),
+      tile("watch_battery", tx("Batterie de la montre"), wchg ? "mdi:battery-charging" : batIcon(wbat, false), num("watch_battery"), LVL[batLevel(wbat)]),
+      tile("watch_battery_state", tx("Charge de la montre"), "mdi:watch", iosFr(v("watch_battery_state"))),
     ]));
 
     // onglet Réseau
@@ -1201,12 +1540,12 @@ class TrackerIphoneCard extends TrackerCard {
       const carrier = demo ? v(k) : at(k, "Carrier Name") || v(k);
       const radio = demo ? "5G" : radioFr(at(k, "Current Radio Technology"));
       const voip = demo ? null : at(k, "Allows VoIP");
-      return tile(k, k === "sim1" ? "Carte SIM" : "eSIM", "mdi:sim", [carrier, radio].filter(Boolean).join(" · "), "--med-blue", voip != null ? `note:Appels VoIP ${String(voip).toLowerCase() === "true" ? "autorisés" : "non autorisés"}` : "");
+      return tile(k, k === "sim1" ? tx("Carte SIM") : "eSIM", "mdi:sim", [carrier, radio].filter(Boolean).join(" · "), "--med-blue", voip != null ? `note:${tx("Appels VoIP")} ${String(voip).toLowerCase() === "true" ? tx("autorisés") : tx("non autorisés")}` : "");
     };
-    const pNet = sec("mdi:access-point-network", "Connexion", grid([
-      tile("connection", "Connexion", wifiOn ? "mdi:wifi" : conn === "cellular" ? "mdi:signal" : "mdi:signal-off", `${iosFr(v("connection"))}${conn === "cellular" && cellTech ? ` · ${cellTech}` : ""}`, wifiOn ? "--med-down" : conn === "cellular" ? dataColor(cellTech) || "--med-blue" : "--t-red"),
-      tile("ssid", "Réseau Wi-Fi", "mdi:wifi", ssid || "Non connecté", ssid ? "--med-down" : null),
-      tile("bssid", "Borne Wi-Fi (BSSID)", "mdi:router-wireless", ok(v("bssid")) && !/not connected/i.test(v("bssid")) ? v("bssid") : "Non connecté", null),
+    const pNet = sec("mdi:access-point-network", tx("Connexion"), grid([
+      tile("connection", tx("Connexion"), wifiOn ? "mdi:wifi" : conn === "cellular" ? "mdi:signal" : "mdi:signal-off", `${iosFr(v("connection"))}${conn === "cellular" && cellTech ? ` · ${cellTech}` : ""}`, wifiOn ? "--med-down" : conn === "cellular" ? dataColor(cellTech) || "--med-blue" : "--t-red"),
+      tile("ssid", tx("Réseau Wi-Fi"), "mdi:wifi", ssid || tx("Non connecté"), ssid ? "--med-down" : null),
+      tile("bssid", tx("Borne Wi-Fi (BSSID)"), "mdi:router-wireless", ok(v("bssid")) && !/not connected/i.test(v("bssid")) ? v("bssid") : tx("Non connecté"), null),
       sim("sim1"), sim("sim2"),
     ]));
 
@@ -1215,86 +1554,86 @@ class TrackerIphoneCard extends TrackerCard {
       const val = parseFloat(v(k)), g = parseFloat(v(goal));
       if (!Number.isFinite(val)) return "";
       const pct = Number.isFinite(g) && g > 0 ? Math.round((val / g) * 100) : null;
-      return tile(k, label, icon, `${num(k)}${pct != null ? ` sur ${num(goal)} · ${pct} %` : ""}`, pct != null && pct >= 100 ? "--med-down" : c);
+      return tile(k, label, icon, `${num(k)}${pct != null ? ` ${tx("sur")} ${num(goal)} · ${pct} %` : ""}`, pct != null && pct >= 100 ? "--med-down" : c);
     };
-    const pHealth = cfg.show_health === false ? "" : sec("mdi:heart-pulse", "Cœur", grid([
-      tile("heart", "Fréquence cardiaque", "mdi:heart-pulse", num("heart"), Number.isFinite(hr) ? hrColor(hr) : null),
-      tile("heart_rest", "Au repos", "mdi:heart-outline", num("heart_rest")),
-      tile("heart_walk", "Moyenne à la marche", "mdi:walk", num("heart_walk")),
-      tile("hrv", "Variabilité", "mdi:heart-flash", num("hrv")),
-      tile("bp_sys", "Tension (systolique)", "mdi:water-percent", num("bp_sys")),
-      tile("bp_dia", "Tension (diastolique)", "mdi:water-percent", num("bp_dia")),
-    ])) + sec("mdi:sleep", "Sommeil", grid([
-      tile("sleep", "Durée du sommeil", "mdi:sleep", num("sleep", 1), "--pc-violet"),
-      tile("in_bed", "Au lit", "mdi:bed", num("in_bed", 1)),
-      tile("sleep_deep", "Sommeil profond", "mdi:weather-night", num("sleep_deep", 1)),
-      tile("sleep_rem", "Sommeil paradoxal", "mdi:eye-outline", num("sleep_rem", 1)),
-      tile("sleep_core", "Sommeil léger", "mdi:weather-night-partly-cloudy", num("sleep_core", 1)),
-      tile("awake", "Éveillé", "mdi:eye", num("awake", 1)),
-    ])) + sec("mdi:fire", "Activité (Santé)", grid([
-      ring("active_energy", "move_goal", "Énergie active", "mdi:fire", "--t-red"),
-      ring("exercise_time", "exercise_goal", "Exercice", "mdi:run", "--med-down"),
-      ring("stand_hours", "stand_goal", "Heures debout", "mdi:human-handsup", "--med-blue"),
-      tile("resting_energy", "Énergie au repos", "mdi:fire-circle", num("resting_energy")),
-      tile("h_steps", "Pas (Santé)", "mdi:shoe-print", num("h_steps")),
-      tile("h_distance", "Marche et course", "mdi:map-marker-path", num("h_distance", 1)),
-      tile("flights", "Étages gravis", "mdi:stairs-up", num("flights")),
+    const pHealth = cfg.show_health === false ? "" : sec("mdi:heart-pulse", tx("Cœur"), grid([
+      tile("heart", tx("Fréquence cardiaque"), "mdi:heart-pulse", num("heart"), Number.isFinite(hr) ? hrColor(hr) : null),
+      tile("heart_rest", tx("Au repos"), "mdi:heart-outline", num("heart_rest")),
+      tile("heart_walk", tx("Moyenne à la marche"), "mdi:walk", num("heart_walk")),
+      tile("hrv", tx("Variabilité"), "mdi:heart-flash", num("hrv")),
+      tile("bp_sys", tx("Tension (systolique)"), "mdi:water-percent", num("bp_sys")),
+      tile("bp_dia", tx("Tension (diastolique)"), "mdi:water-percent", num("bp_dia")),
+    ])) + sec("mdi:sleep", tx("Sommeil"), grid([
+      tile("sleep", tx("Durée du sommeil"), "mdi:sleep", num("sleep", 1), "--pc-violet"),
+      tile("in_bed", tx("Au lit"), "mdi:bed", num("in_bed", 1)),
+      tile("sleep_deep", tx("Sommeil profond"), "mdi:weather-night", num("sleep_deep", 1)),
+      tile("sleep_rem", tx("Sommeil paradoxal"), "mdi:eye-outline", num("sleep_rem", 1)),
+      tile("sleep_core", tx("Sommeil léger"), "mdi:weather-night-partly-cloudy", num("sleep_core", 1)),
+      tile("awake", tx("Éveillé"), "mdi:eye", num("awake", 1)),
+    ])) + sec("mdi:fire", tx("Activité (Santé)"), grid([
+      ring("active_energy", "move_goal", tx("Énergie active"), "mdi:fire", "--t-red"),
+      ring("exercise_time", "exercise_goal", tx("Exercice"), "mdi:run", "--med-down"),
+      ring("stand_hours", "stand_goal", tx("Heures debout"), "mdi:human-handsup", "--med-blue"),
+      tile("resting_energy", tx("Énergie au repos"), "mdi:fire-circle", num("resting_energy")),
+      tile("h_steps", tx("Pas (Santé)"), "mdi:shoe-print", num("h_steps")),
+      tile("h_distance", tx("Marche et course"), "mdi:map-marker-path", num("h_distance", 1)),
+      tile("flights", tx("Étages gravis"), "mdi:stairs-up", num("flights")),
       tile("vo2_max", "VO₂ max", "mdi:lungs", num("vo2_max", 1)),
-    ])) + sec("mdi:human", "Corps et constantes", grid([
-      tile("spo2", "Oxygène dans le sang", "mdi:water-check", num("spo2")),
-      tile("resp_rate", "Fréquence respiratoire", "mdi:lungs", num("resp_rate")),
-      tile("body_temp", "Température", "mdi:thermometer", num("body_temp", 1)),
-      tile("basal_temp", "Température basale", "mdi:thermometer-low", num("basal_temp", 1)),
-      tile("glucose", "Glycémie", "mdi:diabetes", num("glucose", 1)),
-      tile("weight", "Poids", "mdi:scale-bathroom", num("weight", 1)),
-      tile("body_fat", "Masse grasse", "mdi:percent", num("body_fat", 1)),
-      tile("lean_mass", "Masse maigre", "mdi:arm-flex", num("lean_mass", 1)),
-      tile("height", "Taille", "mdi:human-male-height", num("height", 2)),
-      tile("water", "Eau bue", "mdi:cup-water", num("water", 1)),
+    ])) + sec("mdi:human", tx("Corps et constantes"), grid([
+      tile("spo2", tx("Oxygène dans le sang"), "mdi:water-check", num("spo2")),
+      tile("resp_rate", tx("Fréquence respiratoire"), "mdi:lungs", num("resp_rate")),
+      tile("body_temp", tx("Température"), "mdi:thermometer", num("body_temp", 1)),
+      tile("basal_temp", tx("Température basale"), "mdi:thermometer-low", num("basal_temp", 1)),
+      tile("glucose", tx("Glycémie"), "mdi:diabetes", num("glucose", 1)),
+      tile("weight", tx("Poids"), "mdi:scale-bathroom", num("weight", 1)),
+      tile("body_fat", tx("Masse grasse"), "mdi:percent", num("body_fat", 1)),
+      tile("lean_mass", tx("Masse maigre"), "mdi:arm-flex", num("lean_mass", 1)),
+      tile("height", tx("Taille"), "mdi:human-male-height", num("height", 2)),
+      tile("water", tx("Eau bue"), "mdi:cup-water", num("water", 1)),
     ]));
 
     // onglet Kiosque et caméra
     const motionAt = demo ? null : at("camera_motion", "Last Motion");
     const clients = demo ? null : at("camera_stream", "Clients");
-    const pKiosk = cfg.show_kiosk === false ? "" : sec("mdi:tablet-dashboard", "Mode kiosque", grid([
-      tile("kiosk_mode", "Mode kiosque", "mdi:tablet-dashboard", iosFr(v("kiosk_mode")), v("kiosk_mode") === "on" ? "--med-down" : null),
-      tile("kiosk_screensaver", "Économiseur d'écran", "mdi:monitor-shimmer", iosFr(v("kiosk_screensaver"))),
-      tile("kiosk_brightness", "Luminosité", "mdi:brightness-6", num("kiosk_brightness")),
-      tile("kiosk_volume", "Volume", "mdi:volume-high", num("kiosk_volume")),
-    ])) + sec("mdi:cctv", "Caméra", grid([
-      tile("camera_motion", "Mouvement", v("camera_motion") === "on" ? "mdi:motion-sensor" : "mdi:motion-sensor-off", v("camera_motion") === "on" ? "Détecté" : "Aucun", v("camera_motion") === "on" ? "--pc-warn" : null,
-        motionAt ? `note:Dernier : ${fmtDate(motionAt, true) || motionAt}` : ""),
-      tile("camera_stream", "Flux vidéo", "mdi:video-wireless-outline", iosFr(v("camera_stream")), v("camera_stream") === "streaming" ? "--t-red" : null, clients != null ? `note:${clients} spectateur${Number(clients) > 1 ? "s" : ""}` : ""),
+    const pKiosk = cfg.show_kiosk === false ? "" : sec("mdi:tablet-dashboard", tx("Mode kiosque"), grid([
+      tile("kiosk_mode", tx("Mode kiosque"), "mdi:tablet-dashboard", iosFr(v("kiosk_mode")), v("kiosk_mode") === "on" ? "--med-down" : null),
+      tile("kiosk_screensaver", tx("Économiseur d'écran"), "mdi:monitor-shimmer", iosFr(v("kiosk_screensaver"))),
+      tile("kiosk_brightness", tx("Luminosité"), "mdi:brightness-6", num("kiosk_brightness")),
+      tile("kiosk_volume", tx("Volume"), "mdi:volume-high", num("kiosk_volume")),
+    ])) + sec("mdi:cctv", tx("Caméra"), grid([
+      tile("camera_motion", tx("Mouvement"), v("camera_motion") === "on" ? "mdi:motion-sensor" : "mdi:motion-sensor-off", v("camera_motion") === "on" ? tx("Détecté") : tx("Aucun"), v("camera_motion") === "on" ? "--pc-warn" : null,
+        motionAt ? `note:${tx("Dernier :")} ${fmtDate(motionAt, true) || motionAt}` : ""),
+      tile("camera_stream", tx("Flux vidéo"), "mdi:video-wireless-outline", iosFr(v("camera_stream")), v("camera_stream") === "streaming" ? "--t-red" : null, clients != null ? `note:${LANG === "ru" ? `${clients} ${ruPlural(Number(clients), ["зритель", "зрителя", "зрителей"])}` : `${clients} spectateur${Number(clients) > 1 ? "s" : ""}`}` : ""),
     ]));
 
     // onglet Infos
     const perm = String(v("location_perm") || "").toLowerCase();
     const permOk = /always/.test(perm);
     const lu = st("last_update");
-    const total = demo ? "128 Go" : at("storage", "Total");
+    const total = demo ? tx("128 Go") : at("storage", "Total");
     const gtile = (label, icon, val, c, note = "") => val == null ? "" : `<div class="pc-t"${trk && !demo ? ` data-entity="${esc(trk)}"` : ""}${col(c)}><div class="pc-tt"><ha-icon icon="${esc(icon)}"></ha-icon>${esc(label)}</div><b>${esc(val)}</b>${note ? `<div class="pc-tn">${esc(note)}</div>` : ""}</div>`;
-    const fr0 = (x, d = 0) => x.toLocaleString("fr-FR", { maximumFractionDigits: d });
+    const fr0 = (x, d = 0) => x.toLocaleString(LOC(), { maximumFractionDigits: d });
     const gps = [
-      gtile("Vitesse", "mdi:speedometer", kmh !== null ? `${fr0(kmh, kmh < 10 ? 1 : 0)} km/h` : null, kmh > 1 ? "--med-blue" : null),
-      gtile("Direction", "mdi:compass-outline", crs !== null && crs >= 0 && kmh > 1 ? `${dirOf(crs)} (${fr0(crs)}°)` : null),
-      gtile("Altitude", "mdi:image-filter-hdr", alt !== null ? `${fr0(alt)} m` : null, null, vacc !== null && vacc >= 0 ? `± ${fr0(vacc)} m` : ""),
-      gtile("Précision GPS", "mdi:crosshairs-gps", acc !== null ? `± ${fr0(acc)} m` : null, acc === null ? null : acc <= 20 ? "--med-down" : acc <= 100 ? "--pc-warn" : "--t-red"),
-      gtile("Étage", "mdi:office-building-marker", flr !== null ? fr0(flr) : null),
+      gtile(tx("Vitesse"), "mdi:speedometer", kmh !== null ? `${fr0(kmh, kmh < 10 ? 1 : 0)} ${tx("km/h")}` : null, kmh > 1 ? "--med-blue" : null),
+      gtile(tx("Direction"), "mdi:compass-outline", crs !== null && crs >= 0 && kmh > 1 ? `${dirOf(crs)} (${fr0(crs)}°)` : null),
+      gtile(tx("Altitude"), "mdi:image-filter-hdr", alt !== null ? `${fr0(alt)} ${tx("m")}` : null, null, vacc !== null && vacc >= 0 ? `± ${fr0(vacc)} ${tx("m")}` : ""),
+      gtile(tx("Précision GPS"), "mdi:crosshairs-gps", acc !== null ? `± ${fr0(acc)} ${tx("m")}` : null, acc === null ? null : acc <= 20 ? "--med-down" : acc <= 100 ? "--pc-warn" : "--t-red"),
+      gtile(tx("Étage"), "mdi:office-building-marker", flr !== null ? fr0(flr) : null),
     ].join("");
     // « Position envoyée : Nom de zone seulement » : pas de coordonnées, donc ni distance ni GPS
     const zoneOnly = !demo && trkSt && ta.latitude == null && ta.longitude == null;
-    const pGps = gps ? sec("mdi:crosshairs-gps", "Position GPS", `<div class="pc-ts tk-g4">${gps}</div>`)
-      : zoneOnly ? sec("mdi:crosshairs-gps", "Position GPS", `<div class="pc-ts"><div class="pc-t wide"${col("--pc-warn")}><div class="pc-tt"><ha-icon icon="mdi:map-marker-off"></ha-icon>Coordonnées</div><b>Non envoyées</b><div class="pc-tn">L'application n'envoie que le nom de la zone. Pour la distance et la position GPS : Paramètres › Application compagnon › serveur › Position envoyée › Exacte.</div></div></div>`) : "";
-    const pInfo = pGps + this._extras(demo ? null : trkSt || person) + sec("mdi:information-outline", "Appareil", grid([
-      tile("geocoded", "Adresse", "mdi:map-marker-outline", geo, null, "wide"),
-      tile("location_perm", "Autorisation de localisation", permOk ? "mdi:map-marker-check" : "mdi:map-marker-alert", iosFr(v("location_perm")), permOk ? "--med-down" : "--pc-warn",
-        permOk ? "" : "note:Choisissez « Toujours » dans Réglages iOS › Home Assistant › Position, sinon la position ne se met plus à jour en arrière-plan."),
-      tile("last_update", "Dernière mise à jour", "mdi:update", iosFr(v("last_update")), null, lu?.last_changed ? `note:${ago(Date.parse(lu.last_changed))}` : ""),
-      tile("storage", "Stockage", "mdi:harddisk", num("storage"), null, total ? `note:sur ${total}` : ""),
-      tile("app_version", "Application compagnon", "mdi:cellphone-arrow-down", v("app_version")),
+    const pGps = gps ? sec("mdi:crosshairs-gps", tx("Position GPS"), `<div class="pc-ts tk-g4">${gps}</div>`)
+      : zoneOnly ? sec("mdi:crosshairs-gps", tx("Position GPS"), `<div class="pc-ts"><div class="pc-t wide"${col("--pc-warn")}><div class="pc-tt"><ha-icon icon="mdi:map-marker-off"></ha-icon>${tx("Coordonnées")}</div><b>${tx("Non envoyées")}</b><div class="pc-tn">${tx("L'application n'envoie que le nom de la zone. Pour la distance et la position GPS : Paramètres › Application compagnon › serveur › Position envoyée › Exacte.")}</div></div></div>`) : "";
+    const pInfo = pGps + this._extras(demo ? null : trkSt || person) + sec("mdi:information-outline", tx("Appareil"), grid([
+      tile("geocoded", tx("Adresse"), "mdi:map-marker-outline", geo, null, "wide"),
+      tile("location_perm", tx("Autorisation de localisation"), permOk ? "mdi:map-marker-check" : "mdi:map-marker-alert", iosFr(v("location_perm")), permOk ? "--med-down" : "--pc-warn",
+        permOk ? "" : tx("note:Choisissez « Toujours » dans Réglages iOS › Home Assistant › Position, sinon la position ne se met plus à jour en arrière-plan.")),
+      tile("last_update", tx("Dernière mise à jour"), "mdi:update", iosFr(v("last_update")), null, lu?.last_changed ? `note:${ago(Date.parse(lu.last_changed))}` : ""),
+      tile("storage", tx("Stockage"), "mdi:harddisk", num("storage"), null, total ? `note:${tx("sur")} ${total}` : ""),
+      tile("app_version", tx("Application compagnon"), "mdi:cellphone-arrow-down", v("app_version")),
     ]));
 
-    const panels = [["mdi:cellphone", "iPhone", pPhone], ["mdi:wifi", "Réseau", pNet], ["mdi:heart-pulse", "Santé", pHealth], ["mdi:tablet-dashboard", "Kiosque", pKiosk], ["mdi:information-outline", "Infos", pInfo]]
+    const panels = [["mdi:cellphone", "iPhone", pPhone], ["mdi:wifi", tx("Réseau"), pNet], ["mdi:heart-pulse", tx("Santé"), pHealth], ["mdi:tablet-dashboard", tx("Kiosque"), pKiosk], ["mdi:information-outline", tx("Infos"), pInfo]]
       .filter(([, , p]) => p.trim());
     this._panelIds = panels.map(() => "");
     if (this._tab >= panels.length || (this._tab < 0 && (!cfg.collapsed || panels.length < 2))) this._tab = cfg.collapsed && panels.length > 1 ? -1 : 0;
@@ -1302,37 +1641,37 @@ class TrackerIphoneCard extends TrackerCard {
     // en-tête « profil »
     const radius = Number(cfg.near_radius) > 0 ? Number(cfg.near_radius) : 5;
     const pres = !pstate || !ok(pstate) ? "" : home ? "home" : Number.isFinite(km) ? (km <= radius ? "near" : "far") : "away";
-    const presTip = { home: "À la maison", near: `À moins de ${radius} km de la maison`, far: `À plus de ${radius} km de la maison`, away: "Pas à la maison" }[pres] || "Présence inconnue";
+    const presTip = { home: tx("À la maison"), near: tx("À moins de {r} km de la maison", { r: radius }), far: tx("À plus de {r} km de la maison", { r: radius }), away: tx("Pas à la maison") }[pres] || tx("Présence inconnue");
     const meta = [
-      has("activity") && ok(act) && act !== "unknown" ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(aLbl)}</span>` : "",
+      has("activity") && ok(act) && act !== "unknown" ? `<span><ha-icon icon="${esc(aIcon)}"></ha-icon>${esc(tx(aLbl))}</span>` : "",
       Number.isFinite(km) ? `<span><ha-icon icon="mdi:map-marker-distance"></ha-icon>${esc(fmtKm(km))}</span>` : "",
       demo ? "" : this._sinceSpan(person, pstate),
-      kmh > 3 ? `<span style="color:var(--med-blue)"><ha-icon icon="mdi:speedometer"></ha-icon>${Math.round(kmh)} km/h</span>` : "",
-      Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} bpm</span>` : "",
-      focusOn ? `<span style="color:var(--pc-violet)"><ha-icon icon="mdi:moon-waning-crescent"></ha-icon>Concentration</span>` : "",
-      charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash"></ha-icon>En charge</span>` : "",
+      kmh > 3 ? `<span style="color:var(--med-blue)"><ha-icon icon="mdi:speedometer"></ha-icon>${Math.round(kmh)} ${tx("km/h")}</span>` : "",
+      Number.isFinite(hr) ? `<span style="color:var(${hrColor(hr)})"><ha-icon class="tk-hr" icon="mdi:heart-pulse"></ha-icon>${hr} ${tx("bpm")}</span>` : "",
+      focusOn ? `<span style="color:var(--pc-violet)"><ha-icon icon="mdi:moon-waning-crescent"></ha-icon>${tx("Concentration")}</span>` : "",
+      charging ? `<span style="color:var(--pc-warn)"><ha-icon icon="mdi:flash"></ha-icon>${tx("En charge")}</span>` : "",
     ].join("");
     const icon = (i) => `<ha-icon icon="${i}"></ha-icon>`;
     const dial = (k, label, inner, c, state, tip = label) => `<div class="tk-dial ${state}"${entA(k)}${col(c)} title="${esc(tip)}"><div>${inner}</div><span>${esc(label)}</span></div>`;
     const dials = [
-      has("battery") ? dial("battery", "Batterie", `${Number.isFinite(bat) ? Math.round(bat) : "—"}${charging ? `<ha-icon icon="mdi:flash" style="--mdc-icon-size:14px;margin-left:-1px"></ha-icon>` : `<small style="font-size:.62rem">%</small>`}`,
-        lowPower ? "--pc-warn" : LVL[bl], "on", `Batterie ${Number.isFinite(bat) ? Math.round(bat) + " %" : ""}${lowPower ? " · économie d'énergie" : ""}`) : "",
-      has("connection") || has("ssid") ? dial(has("connection") ? "connection" : "ssid", wifiOn ? "Wi-Fi" : "Mobile", wifiOn ? icon("mdi:wifi") : cellTech && conn === "cellular" ? esc(String(cellTech).slice(0, 4)) : icon("mdi:signal-off"),
-        wifiOn ? "--med-down" : conn === "cellular" ? dataColor(cellTech) || "--med-blue" : null, wifiOn || conn === "cellular" ? "on" : "off", wifiOn ? `Wi-Fi : ${ssid || "connecté"}` : conn === "cellular" ? `Mobile ${cellTech || ""}` : "Aucune connexion") : "",
-      has("watch_battery") ? dial("watch_battery", "Montre", `${Number.isFinite(wbat) ? Math.round(wbat) : "—"}<small style="font-size:.62rem">%</small>`, LVL[batLevel(wbat)], "on", `Apple Watch ${Number.isFinite(wbat) ? Math.round(wbat) + " %" : ""}${wchg ? " · en charge" : ""}`) : "",
-      has("location_perm") && !permOk ? dial("location_perm", "Position", icon("mdi:map-marker-alert"), "--pc-warn", "on", "Localisation pas sur « Toujours »") : "",
+      has("battery") ? dial("battery", tx("Batterie"), `${Number.isFinite(bat) ? Math.round(bat) : "—"}${charging ? `<ha-icon icon="mdi:flash" style="--mdc-icon-size:14px;margin-left:-1px"></ha-icon>` : `<small style="font-size:.62rem">%</small>`}`,
+        lowPower ? "--pc-warn" : LVL[bl], "on", `${tx("Batterie")} ${Number.isFinite(bat) ? Math.round(bat) + " %" : ""}${lowPower ? tx(" · économie d'énergie") : ""}`) : "",
+      has("connection") || has("ssid") ? dial(has("connection") ? "connection" : "ssid", wifiOn ? "Wi-Fi" : tx("Mobile"), wifiOn ? icon("mdi:wifi") : cellTech && conn === "cellular" ? esc(String(cellTech).slice(0, 4)) : icon("mdi:signal-off"),
+        wifiOn ? "--med-down" : conn === "cellular" ? dataColor(cellTech) || "--med-blue" : null, wifiOn || conn === "cellular" ? "on" : "off", wifiOn ? `Wi-Fi : ${ssid || tx("connecté")}` : conn === "cellular" ? `${tx("Mobile")} ${cellTech || ""}` : tx("Aucune connexion")) : "",
+      has("watch_battery") ? dial("watch_battery", tx("Montre"), `${Number.isFinite(wbat) ? Math.round(wbat) : "—"}<small style="font-size:.62rem">%</small>`, LVL[batLevel(wbat)], "on", `Apple Watch ${Number.isFinite(wbat) ? Math.round(wbat) + " %" : ""}${wchg ? tx(" · en charge") : ""}`) : "",
+      has("location_perm") && !permOk ? dial("location_perm", tx("Position"), icon("mdi:map-marker-alert"), "--pc-warn", "on", tx("Localisation pas sur « Toujours »")) : "",
     ].join("");
 
     const html = `
       <div class="tk-hero ${pres}">
-        ${cfg.title || demo ? `<div class="tk-top">${esc(cfg.title || "")}${demo ? "<small>Démo</small>" : ""}</div>` : ""}
+        ${cfg.title || demo ? `<div class="tk-top">${esc(cfg.title || "")}${demo ? `<small>${tx("Démo")}</small>` : ""}</div>` : ""}
         <div class="tk-ring"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`} title="${esc(presTip)}">
           <svg viewBox="0 0 92 92"><circle class="bg" cx="46" cy="46" r="42"></circle>${pres ? `<circle class="fg" cx="46" cy="46" r="42"></circle>` : ""}</svg>
           <div class="tk-face">${pic ? `<img src="${esc(pic)}" alt="">` : esc((name || "?").trim().charAt(0).toUpperCase())}</div>
         </div>
         <div class="tk-id">
           <div class="tk-name">${esc(name)}</div>
-          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? "Inconnu" : "Choisissez une personne")) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
+          <div class="tk-zone"${demo || !cfg.person ? "" : ` data-entity="${esc(cfg.person)}"`}><i></i>${esc((zone || (cfg.person ? tx("Inconnu") : tx("Choisissez une personne"))) + this._nearTxt(pstate, demo ? null : this._st("tracker") || person))}</div>
           ${home && cfg.address_at_home === false ? "" : where ? `<div class="tk-addr">${esc(where)}</div>` : ville ? `<div class="tk-addr">${esc(ville)}</div>` : ""}
           ${meta ? `<div class="tk-meta">${meta}</div>` : ""}
         </div>
@@ -1340,7 +1679,7 @@ class TrackerIphoneCard extends TrackerCard {
       ${dials ? `<div class="tk-dials">${dials}</div>` : ""}
       ${panels.length > 1 ? `<div class="pc-tabs">${panels.map(([i, l], n) => `<button class="pc-tab${n === this._tab ? " on" : ""}" data-tab="${n}"><ha-icon icon="${i}"></ha-icon>${l}</button>`).join("")}</div>` : ""}
       ${panels.map(([, , p], n) => `<div class="panel${n === this._tab ? " on" : ""}">${p}</div>`).join("")}
-      ${!panels.length && !demo && !Number.isFinite(bat) ? `<div class="empty">${cfg.person ? "<b>Aucun capteur d'iPhone trouvé</b><span>Activez les capteurs dans l'application Home Assistant : Paramètres › Application compagnon › Capteurs.</span>" : "<b>Choisissez une personne</b><span>dans l'éditeur de la carte.</span>"}</div>` : ""}`;
+      ${!panels.length && !demo && !Number.isFinite(bat) ? `<div class="empty">${cfg.person ? `<b>${tx("Aucun capteur d'iPhone trouvé")}</b><span>${tx("Activez les capteurs dans l'application Home Assistant : Paramètres › Application compagnon › Capteurs.")}</span>` : `<b>${tx("Choisissez une personne")}</b><span>${tx("dans l'éditeur de la carte.")}</span>`}</div>` : ""}`;
 
     if (full || !this._card) {
       this.shadowRoot.innerHTML = `${STYLE}<ha-card></ha-card>`;
@@ -1383,13 +1722,13 @@ const IOS_DEFAULTS = { title: "", theme: "v2", near_radius: 5, show_health: true
 
 class TrackerIphoneCardEditor extends HTMLElement {
   setConfig(config) { this._config = { ...config }; this._draw(); }
-  set hass(hass) { this._hass = hass; if (this._form) this._form.hass = hass; else this._draw(); }
+  set hass(hass) { LANG = langOf(hass); this._hass = hass; if (this._form) this._form.hass = hass; else this._draw(); }
   _draw() {
     if (!this._hass || !this._config) return;
     if (!this._form) {
       this._form = document.createElement("ha-form");
-      this._form.computeLabel = (s) => IOS_LABELS[s.name] || s.name;
-      this._form.computeHelper = (s) => (s.name === "person" ? "Les capteurs de l'iPhone de cette personne sont trouvés automatiquement." : undefined);
+      this._form.computeLabel = (s) => tx(IOS_LABELS[s.name] || s.name);
+      this._form.computeHelper = (s) => (s.name === "person" ? tx("Les capteurs de l'iPhone de cette personne sont trouvés automatiquement.") : undefined);
       this._form.addEventListener("value-changed", (ev) => {
         const cfg = { ...ev.detail.value };
         for (const [k, val] of Object.entries(IOS_DEFAULTS)) if (cfg[k] === val || cfg[k] === undefined) delete cfg[k];
@@ -1401,7 +1740,7 @@ class TrackerIphoneCardEditor extends HTMLElement {
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.schema = placesSchema(IOS_SCHEMA, this._config);
+    this._form.schema = trSchema(placesSchema(IOS_SCHEMA, this._config));
     this._form.data = { ...IOS_DEFAULTS, ...this._config };
   }
 }
