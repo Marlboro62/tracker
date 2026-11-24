@@ -257,6 +257,10 @@ Seuls les capteurs présents s'affichent ; un onglet vide n'apparaît pas.
 
 > Les données de santé sont personnelles : la carte les montre à toute personne qui ouvre le tableau de bord. Masquez-les avec `show_health: false` sur un tableau de bord partagé.
 
+## Langues
+
+Les deux cartes et leurs éditeurs suivent la langue de Home Assistant : **français**, **anglais**, **allemand**, **espagnol**, **italien**, **néerlandais** et **russe**. Pour toute autre langue, elles s'affichent en anglais. Les textes venant du téléphone (notifications, SMS, adresse) restent tels quels.
+
 ## Vie privée
 
 La carte affiche la position, l'adresse et le contenu des notifications de la personne suivie : réservez-la aux tableaux de bord des personnes concernées, ou masquez les notifications avec `notifications: false`. Elle ne contacte aucun service extérieur, tout est lu dans Home Assistant. Pour une capture à partager, activez le **mode démo** (`demo: true`).
